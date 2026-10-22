@@ -39,7 +39,8 @@ export default function App() {
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
 
   // Public View state for the main site
-  const [activeView, setActiveView] = useState<'home' | 'collections' | 'custom' | 'about'>('home');
+  const [activeView, setActiveView] = useState<'home' | 'collections'>('home');
+  const [activeNavSection, setActiveNavSection] = useState<'home' | 'collections' | 'custom' | 'about'>('home');
   const [selectedCategoryForCollections, setSelectedCategoryForCollections] = useState<string>('all');
 
   // Modal & Drawer states
@@ -176,30 +177,71 @@ export default function App() {
     );
   }, [selectedProduct, products]);
 
+  // Scroll spy to highlight active nav link on home page
+  useEffect(() => {
+    if (activeView !== 'home') {
+      setActiveNavSection('collections');
+      return;
+    }
+
+    const handleScrollSpy = () => {
+      const customEl = document.getElementById('custom-prints');
+      const aboutEl = document.getElementById('about');
+      const scrollPos = window.scrollY + 180;
+
+      if (aboutEl && scrollPos >= aboutEl.offsetTop) {
+        setActiveNavSection('about');
+      } else if (customEl && scrollPos >= customEl.offsetTop) {
+        setActiveNavSection('custom');
+      } else {
+        setActiveNavSection('home');
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollSpy, { passive: true });
+    return () => window.removeEventListener('scroll', handleScrollSpy);
+  }, [activeView]);
+
   // Public Navigation handlers
   const handlePublicNavigate = (view: 'home' | 'collections' | 'custom' | 'about') => {
     if (currentPath !== '/') {
       navigateTo('/');
     }
-    setActiveView(view);
+
     if (view === 'collections') {
+      setActiveView('collections');
+      setActiveNavSection('collections');
       setSelectedCategoryForCollections('all');
-    }
-    if (view === 'custom') {
-      const el = document.getElementById('custom-prints');
-      if (el && activeView === 'home') {
-        el.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (view === 'custom') {
+      setActiveView('home');
+      setActiveNavSection('custom');
+      const doScroll = () => {
+        const el = document.getElementById('custom-prints');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+      doScroll();
+      setTimeout(doScroll, 60);
+      setTimeout(doScroll, 180);
+      setTimeout(doScroll, 350);
     } else if (view === 'about') {
-      const el = document.getElementById('about');
-      if (el && activeView === 'home') {
-        el.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      setActiveView('home');
+      setActiveNavSection('about');
+      const doScroll = () => {
+        const el = document.getElementById('about');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+      doScroll();
+      setTimeout(doScroll, 60);
+      setTimeout(doScroll, 180);
+      setTimeout(doScroll, 350);
     } else {
+      setActiveView('home');
+      setActiveNavSection('home');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -321,7 +363,7 @@ export default function App() {
     <div className="min-h-screen bg-[#101010] text-[#F5F3EF] font-sans antialiased selection:bg-[#E7A96B]/30 selection:text-[#F5F3EF]">
       {/* Navigation Bar */}
       <Navbar
-        activeView={activeView}
+        activeView={activeNavSection}
         onNavigate={handlePublicNavigate}
         favoritesCount={favoriteIds.length}
         onOpenFavorites={() => setIsFavoritesOpen(true)}

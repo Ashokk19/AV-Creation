@@ -19,9 +19,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onRequestCustom, onN
           {/* Brand Info with 3D Emblem */}
           <div className="md:col-span-5 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-md overflow-hidden bg-transparent flex items-center justify-center p-0.5">
+              <div className="w-12 h-12 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5">
                 <img
-                  src="/assets/aistudio/AV_Creations_3D_Filament_Emblem_89987b51.png"
+                  src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
                   alt="AV Creations Logo"
                   className="w-full h-full object-contain"
                 />

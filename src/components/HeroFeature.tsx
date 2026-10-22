@@ -95,9 +95,9 @@ export const HeroFeature: React.FC<HeroFeatureProps> = ({
                 
                 {/* 3D Studio Emblem Centerpiece */}
                 <img
-                  src="/assets/aistudio/AV_Creations_3D_Filament_Emblem_89987b51.png"
+                  src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
                   alt="AV Creations Studio Emblem"
-                  className="w-64 h-64 sm:w-80 sm:h-80 object-contain drop-shadow-[0_20px_50px_rgba(231,169,107,0.25)] relative z-10 transition-transform duration-700 hover:scale-105"
+                  className="w-72 h-72 sm:w-96 sm:h-96 object-contain drop-shadow-[0_20px_50px_rgba(231,169,107,0.35)] relative z-10 transition-transform duration-700 hover:scale-105"
                 />
 
                 <div className="absolute bottom-4 z-20 px-3 py-1 rounded bg-[#161618]/90 border border-[#28282C] text-[11px] font-mono text-[#E7A96B] backdrop-blur-md">

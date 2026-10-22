@@ -18,6 +18,8 @@ import {
   Search,
   Eye,
   X,
+  BookOpen,
+  Key,
 } from 'lucide-react';
 import { CategoryRecord, ProductRecord } from '../../types';
 import {
@@ -39,7 +41,7 @@ interface AdminDashboardProps {
   adminEmail?: string;
 }
 
-type TabType = 'overview' | 'products' | 'categories' | 'add-product' | 'add-category' | 'database';
+type TabType = 'overview' | 'products' | 'categories' | 'add-product' | 'add-category' | 'database' | 'guide';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
@@ -294,9 +296,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Brand Lockup */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5">
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5">
               <img
-                src="/assets/aistudio/AV_Creations_3D_Filament_Emblem_89987b51.png"
+                src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
                 alt="AV Creations"
                 className="w-full h-full object-contain"
               />
@@ -352,6 +354,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             { id: 'add-product', label: editingProductId ? 'Edit Product' : 'Add Product', icon: PlusCircle },
             { id: 'add-category', label: 'Add Category', icon: PlusCircle },
             { id: 'database', label: 'Supabase SQL Setup', icon: Database },
+            { id: 'guide', label: 'Admin & Setup Guide', icon: BookOpen },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -1132,6 +1135,192 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="bg-[#0C0C0E] border border-[#242428] rounded-lg p-4 font-mono text-[11px] text-[#A1A1AA] overflow-x-auto max-h-[400px]">
                 <pre>{SUPABASE_SQL_SCHEMA}</pre>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: SETUP & ADMIN GUIDE */}
+          {activeTab === 'guide' && (
+            <div className="bg-[#141416] border border-[#222226] rounded-xl p-6 sm:p-8 space-y-8 animate-in fade-in duration-200">
+              <div className="border-b border-[#222226] pb-6">
+                <div className="flex items-center gap-2 text-xs font-mono font-semibold text-[#E7A96B] uppercase tracking-wider">
+                  <BookOpen className="w-4 h-4" />
+                  <span>Documentation & Operating Manual</span>
+                </div>
+                <h2 className="text-2xl font-extrabold text-[#F5F3EF] mt-1">
+                  AV Creation Studio Administration Guide
+                </h2>
+                <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed max-w-3xl">
+                  Complete walkthrough on configuring Supabase authentication, managing the additive manufacturing catalogue, assigning roles, and creating categories and items.
+                </p>
+              </div>
+
+              {/* Guide Card 1: Admin Login Setup */}
+              <div className="space-y-4 bg-[#18181C] border border-[#282830] rounded-xl p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#E7A96B]/15 text-[#E7A96B] flex items-center justify-center font-bold text-xs">
+                    01
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#F5F3EF]">
+                      How to Setup Administrator Login
+                    </h3>
+                    <p className="text-[11px] text-[#A1A1AA]">
+                      Supabase Auth integration with strict server-side role verification
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs text-[#D4D4D8] leading-relaxed pt-2">
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[#E7A96B] font-bold">1.</span>
+                    <span>
+                      <strong>Run Database Schema:</strong> In your Supabase Dashboard, open <strong>SQL Editor</strong>, paste the script from the <strong>Supabase SQL Setup</strong> tab, and click <strong>Run</strong>.
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[#E7A96B] font-bold">2.</span>
+                    <span>
+                      <strong>Create User in Supabase Auth:</strong> Go to <strong>Authentication -&gt; Users</strong>, click <strong>Add User</strong>, enter your admin email and password, and toggle <strong>Auto Confirm User</strong> to ON.
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[#E7A96B] font-bold">3.</span>
+                    <div className="space-y-2 flex-1">
+                      <span>
+                        <strong>Grant Admin Role:</strong> In your Supabase <strong>SQL Editor</strong>, run this SQL statement to authorize your email as an administrator:
+                      </span>
+                      <div className="bg-[#0D0D0F] border border-[#2B2B32] p-3 rounded-lg flex items-center justify-between gap-4 font-mono text-[11px] text-[#E7A96B]">
+                        <code>
+                          INSERT INTO public.admin_users (id, role, notes)<br />
+                          SELECT id, &apos;admin&apos;, &apos;Lead Administrator&apos; FROM auth.users WHERE email = &apos;your-email@example.com&apos;<br />
+                          ON CONFLICT (id) DO UPDATE SET role = &apos;admin&apos;;
+                        </code>
+                        <button
+                          onClick={() => {
+                            const sql = `INSERT INTO public.admin_users (id, role, notes)\nSELECT id, 'admin', 'Lead Administrator'\nFROM auth.users\nWHERE email = 'your-email@example.com'\nON CONFLICT (id) DO UPDATE SET role = 'admin';`;
+                            navigator.clipboard.writeText(sql);
+                            showNotification('success', 'Admin grant SQL copied to clipboard! Replace your-email@example.com before running.');
+                          }}
+                          className="shrink-0 p-2 bg-[#222228] hover:bg-[#2F2F38] text-[#F5F3EF] rounded transition-colors"
+                          title="Copy SQL snippet"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[#E7A96B] font-bold">4.</span>
+                    <span>
+                      <strong>Connect Keys & Log In:</strong> Provide your Supabase URL & Anon Key in <code className="text-[#E7A96B] bg-[#222228] px-1 py-0.5 rounded">.env</code> or via the connection popup, then log in at <code className="text-[#E7A96B] bg-[#222228] px-1 py-0.5 rounded">/admin/login</code>.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guide Card 2: How to Add Categories */}
+              <div className="space-y-4 bg-[#18181C] border border-[#282830] rounded-xl p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#E7A96B]/15 text-[#E7A96B] flex items-center justify-center font-bold text-xs">
+                      02
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#F5F3EF]">
+                        How to Add and Manage Categories
+                      </h3>
+                      <p className="text-[11px] text-[#A1A1AA]">
+                        Organize creations into carousels and filtering collections
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setActiveTab('add-category')}
+                    className="px-3 py-1.5 bg-[#25252C] hover:bg-[#32323C] text-xs font-semibold text-[#E7A96B] rounded transition-colors cursor-pointer"
+                  >
+                    + New Category
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs text-[#D4D4D8] leading-relaxed pt-2">
+                  <p>
+                    Categories power the horizontal Netflix-style carousels on the Discovery homepage and filter tabs in the Collections Explorer.
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1.5 text-[#A1A1AA]">
+                    <li>
+                      <strong className="text-[#F5F3EF]">Default Categories:</strong> The 4 core collections (<em>Tea Lights</em>, <em>Clickers</em>, <em>Pokemon</em>, <em>Wall Decors</em>) are pre-configured and always appear on the public site.
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">Category Name:</strong> Human-readable title (e.g. &ldquo;Planters &amp; Flora&rdquo; or &ldquo;Mechanical Keycaps&rdquo;).
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">URL Slug:</strong> URL-friendly key (e.g. <code className="text-[#E7A96B]">planters-flora</code>). Automatically generated if left empty.
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">Safe Deletion Protection:</strong> You cannot delete a category if products are still assigned to it. This prevents broken catalogue references.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Guide Card 3: How to Add Products / Items */}
+              <div className="space-y-4 bg-[#18181C] border border-[#282830] rounded-xl p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#E7A96B]/15 text-[#E7A96B] flex items-center justify-center font-bold text-xs">
+                      03
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#F5F3EF]">
+                        How to Add and Manage Products (Items)
+                      </h3>
+                      <p className="text-[11px] text-[#A1A1AA]">
+                        High-resolution photography, 3D technical specs, and status controls
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      resetProductForm();
+                      setActiveTab('add-product');
+                    }}
+                    className="px-3 py-1.5 bg-[#E7A96B] hover:bg-[#F2BA82] text-xs font-semibold text-[#101010] rounded transition-colors cursor-pointer"
+                  >
+                    + New Product
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs text-[#D4D4D8] leading-relaxed pt-2">
+                  <p>
+                    Every product card highlights computational additive design, material quality, and print precision.
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1.5 text-[#A1A1AA]">
+                    <li>
+                      <strong className="text-[#F5F3EF]">Product Image Upload:</strong> Drag &amp; drop or browse a photo (PNG, JPG, WEBP up to 15MB). The image uploads directly to your Supabase Storage bucket (<code className="text-[#E7A96B]">product-images</code>) and is delivered via CDN.
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">3D Technical Specs:</strong> Add material (PLA+, PETG, Silk PLA, Carbon Fiber), machine print duration (e.g. 7.5 hrs), sub-fractional layer height (e.g. 0.12mm), infill pattern, dimensions, and weight.
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">Active vs Draft:</strong> Set status to <em>Active</em> to publish immediately, or <em>Draft</em> to keep it private while refining photos.
+                    </li>
+                    <li>
+                      <strong className="text-[#F5F3EF]">Featured Showcase Toggle:</strong> Enable &ldquo;Feature this creation in Hero &amp; Showcase&rdquo; to spotlight it as the cinematic hero centerpiece at the top of the website.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Documentation file reference */}
+              <div className="pt-4 border-t border-[#222226] flex items-center justify-between text-xs text-[#71717A] font-mono">
+                <span>Offline File: ADMIN_SETUP_GUIDE.md</span>
+                <span>AV Creation Studio · Additive Platform</span>
               </div>
             </div>
           )}

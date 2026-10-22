@@ -3,7 +3,7 @@ import { Layers, Flame, Wrench, ShieldCheck, Compass, Sparkles } from 'lucide-re
 
 export const AboutSection: React.FC = () => {
   return (
-    <section id="about" className="relative py-20 sm:py-28 bg-[#0D0D0F] border-t border-[#1C1C20] overflow-hidden">
+    <section id="about" className="scroll-mt-24 relative py-20 sm:py-28 bg-[#0D0D0F] border-t border-[#1C1C20] overflow-hidden">
       {/* Background Subtle Gradient */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-[#E7A96B]/5 blur-[120px] pointer-events-none rounded-full" />
 

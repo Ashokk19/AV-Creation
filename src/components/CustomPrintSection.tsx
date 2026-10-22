@@ -88,7 +88,7 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
   };
 
   return (
-    <section id="custom-prints" className="relative py-16 sm:py-24 bg-[#101010] border-t border-[#1C1C20] overflow-hidden">
+    <section id="custom-prints" className="scroll-mt-24 relative py-16 sm:py-24 bg-[#101010] border-t border-[#1C1C20] overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-[#E7A96B]/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />

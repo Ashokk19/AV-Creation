@@ -61,19 +61,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3 text-left focus:outline-none group shrink-0"
             aria-label="AV Creation Home"
           >
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5 group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5 group-hover:scale-105 transition-transform">
               <img
-                src="/assets/aistudio/AV_Creations_3D_Filament_Emblem_89987b51.png"
-                alt="AV Creation 3D Filament Emblem"
-                className="w-full h-full object-contain"
+                src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
+                alt="AV Creation Mascot 3D Emblem"
+                className="w-full h-full object-contain drop-shadow-md"
                 onError={(e) => {
-                  // Graceful fallback to initial badge if image path changes
                   e.currentTarget.style.display = 'none';
                 }}
               />
             </div>
             <div className="flex flex-col">
-              <span className="text-base font-extrabold tracking-widest text-[#F5F3EF] uppercase">
+              <span className="text-base sm:text-lg font-extrabold tracking-wider text-[#F5F3EF] uppercase">
                 AV CREATIONS
               </span>
               <span className="text-[10px] tracking-widest text-[#E7A96B] uppercase font-mono -mt-1 font-semibold">

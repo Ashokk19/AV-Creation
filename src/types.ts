@@ -1,0 +1,103 @@
+export interface CategoryRecord {
+  id: string;
+  name: string;
+  slug: string;
+  created_at?: string;
+  product_count?: number;
+}
+
+export interface ProductRecord {
+  id: string;
+  name: string;
+  slug: string;
+  short_description?: string | null;
+  description?: string | null;
+  image_path: string;
+  image_url?: string;
+  category_id: string;
+  is_featured: boolean;
+  status: 'active' | 'draft';
+  created_at?: string;
+  updated_at?: string;
+  category?: CategoryRecord;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: 'admin' | 'super_admin';
+  created_at?: string;
+}
+
+export type ProductFunctionType = 'decorative' | 'functional' | 'hybrid';
+
+export type FilamentMaterial =
+  | 'PLA+ Silk'
+  | 'Matte PLA'
+  | 'Translucent PETG'
+  | 'Resin High-Detail'
+  | 'Wood Composite PLA'
+  | 'Carbon Fiber PETG';
+
+export interface ColorVariant {
+  name: string;
+  hex: string;
+  filamentType: string;
+}
+
+export interface TechnicalSpecs {
+  material: string;
+  layerResolution: string;
+  infillDensity: string;
+  printTimeHours: number;
+  dimensions: {
+    widthMm: number;
+    depthMm: number;
+    heightMm: number;
+  };
+  weightGrams: number;
+  nozzleDiameter: string;
+}
+
+export interface ProductItem {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  category: string; // slug
+  categoryName: string;
+  categoryId: string;
+  functionType: ProductFunctionType;
+  shortDescription: string;
+  storyDescription: string;
+  featured: boolean;
+  trending: boolean;
+  recentlyAdded: boolean;
+  creationDate: string;
+  status: 'active' | 'draft';
+  image_path: string;
+  imageUrl?: string;
+  primaryVisual: {
+    accentGlow: string;
+    style: string;
+    description: string;
+    aspectRatio: '16:9' | '4:3' | '1:1';
+  };
+  specs: TechnicalSpecs;
+  availableColors: ColorVariant[];
+  customizable: boolean;
+  tags: string[];
+}
+
+export interface CustomInquiry {
+  fullName: string;
+  email: string;
+  phone?: string;
+  projectCategory: string;
+  referenceUrlOrNotes?: string;
+  estimatedDimensions: string;
+  materialPreference: string;
+  description: string;
+  quantity: number;
+  targetTimeline: 'flexible' | '2-3-weeks' | 'urgent-1-week';
+}

@@ -1,0 +1,6 @@
+{
+  "name": "AV CREATION — 3D Printing Studio & Portfolio",
+  "description": "Premium cinematic portfolio showcasing custom 3D printed lighting, articulated collectibles, home decor, and bespoke additive manufacturing creations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

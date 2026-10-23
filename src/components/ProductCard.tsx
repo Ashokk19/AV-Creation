@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Bookmark, ArrowRight } from 'lucide-react';
+import { Bookmark, ArrowRight, ShoppingBag } from 'lucide-react';
 import { ProductItem } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
+import { formatPriceINR } from '../lib/config';
 
 interface ProductCardProps {
   product: ProductItem;
   isFavorite: boolean;
   onToggleFavorite: (product: ProductItem) => void;
   onSelect: (product: ProductItem) => void;
+  onAddToCart?: (product: ProductItem) => void;
   priority?: boolean;
 }
 
@@ -16,6 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isFavorite,
   onToggleFavorite,
   onSelect,
+  onAddToCart,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -99,8 +102,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         </div>
 
+        {/* Price and Add to Cart Action */}
+        <div className="mt-2.5 flex items-center justify-between">
+          <div>
+            {product.price !== undefined && product.price !== null ? (
+              <span className="text-sm font-mono font-bold text-[#E7A96B]">
+                {formatPriceINR(product.price)}
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono text-[#A1A1AA] italic bg-[#1E1E22] px-2 py-0.5 rounded border border-[#2D2D32]">
+                Price on request
+              </span>
+            )}
+          </div>
+
+          {onAddToCart && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[#101010] bg-[#E7A96B] hover:bg-[#F2BA82] active:scale-95 rounded-md transition-all cursor-pointer shadow-xs"
+              title={product.price != null ? `Add ${product.title} to cart` : 'Add creation to cart'}
+            >
+              <ShoppingBag className="w-3 h-3" />
+              <span>Add</span>
+            </button>
+          )}
+        </div>
+
         {/* Clean unboxed metadata footer */}
-        <div className="mt-3 pt-2.5 border-t border-[#222226] flex items-center justify-between text-[11px] text-[#71717A] font-mono">
+        <div className="mt-2.5 pt-2 border-t border-[#222226] flex items-center justify-between text-[11px] text-[#71717A] font-mono">
           <span className="truncate max-w-[170px]">{product.specs.material}</span>
           <span className="text-[#A1A1AA]">{product.specs.dimensions.heightMm}mm H</span>
         </div>

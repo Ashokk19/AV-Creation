@@ -17,6 +17,7 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
   angle = 'primary',
   className = '',
   isHovered = false,
+  priority = false,
 }) => {
   const uniqueId = useId().replace(/:/g, '');
   const [imageError, setImageError] = useState(false);

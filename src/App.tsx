@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ProductItem, ColorVariant, CategoryRecord, ProductRecord } from './types';
+import { ProductItem, ColorVariant, CategoryRecord, ProductRecord, CartItem } from './types';
 import { getCategoryCarousels } from './utils/filterLogic';
 import { fetchCategories, fetchProducts, mapProductRecordToItem } from './services/productService';
 import { getCurrentAdmin } from './services/authService';
@@ -16,6 +16,7 @@ import { CollectionsView } from './components/CollectionsView';
 import { CustomPrintSection } from './components/CustomPrintSection';
 import { AboutSection } from './components/AboutSection';
 import { FavoritesDrawer } from './components/FavoritesDrawer';
+import { CartDrawer } from './components/CartDrawer';
 import { SearchModal } from './components/SearchModal';
 import { Footer } from './components/Footer';
 import { AdminLogin } from './components/admin/AdminLogin';
@@ -66,6 +67,100 @@ export default function App() {
       // ignore storage error
     }
   }, [favoriteIds]);
+
+  // Shopping Cart state persisted in localStorage
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('av_creation_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('av_creation_cart', JSON.stringify(cartItems));
+    } catch {
+      // ignore storage error
+    }
+  }, [cartItems]);
+
+  // Synchronize cart items with live product updates from Supabase (prices, status, etc.)
+  useEffect(() => {
+    if (products.length === 0) return;
+    setCartItems((prevItems) => {
+      let hasChanged = false;
+      const updated = prevItems.map((item) => {
+        const live = products.find((p) => p.id === item.product.id);
+        if (live && live !== item.product) {
+          hasChanged = true;
+          return {
+            ...item,
+            product: live,
+          };
+        }
+        return item;
+      });
+      return hasChanged ? updated : prevItems;
+    });
+  }, [products]);
+
+  // Cart Action Handlers
+  const handleAddToCart = (product: ProductItem, quantity = 1, selectedColor?: ColorVariant) => {
+    const chosenColor = selectedColor || product.availableColors[0];
+    setCartItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) => item.product.id === product.id && item.selectedColor?.name === chosenColor?.name
+      );
+      if (existingIndex > -1) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + Math.max(1, quantity),
+          product,
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          product,
+          quantity: Math.max(1, quantity),
+          selectedColor: chosenColor,
+          addedAt: new Date().toISOString(),
+        },
+      ];
+    });
+    setIsCartOpen(true);
+  };
+
+  const handleUpdateCartQuantity = (productId: string, quantity: number, selectedColorName?: string) => {
+    if (quantity < 1) return;
+    setCartItems((prev) =>
+      prev.map((item) => {
+        if (item.product.id === productId && (!selectedColorName || item.selectedColor?.name === selectedColorName)) {
+          return { ...item, quantity };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleRemoveCartItem = (productId: string, selectedColorName?: string) => {
+    setCartItems((prev) =>
+      prev.filter((item) => !(item.product.id === productId && (!selectedColorName || item.selectedColor?.name === selectedColorName)))
+    );
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+  };
+
+  const cartCount = useMemo(() => {
+    return cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  }, [cartItems]);
 
   // Navigate helper with browser History pushState
   const navigateTo = useCallback((path: string) => {
@@ -367,6 +462,8 @@ export default function App() {
         onNavigate={handlePublicNavigate}
         favoritesCount={favoriteIds.length}
         onOpenFavorites={() => setIsFavoritesOpen(true)}
+        cartCount={cartCount}
+        onOpenCart={() => setIsCartOpen(true)}
         onOpenSearch={() => setIsSearchOpen(true)}
         onRequestCustom={() => {
           setCustomInquiryPreFill('');
@@ -387,6 +484,7 @@ export default function App() {
             favorites={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
             onSelectProduct={(p) => setSelectedProduct(p)}
+            onAddToCart={(p) => handleAddToCart(p, 1)}
             onBackToDiscover={() => handlePublicNavigate('home')}
             onRequestCustom={() => handlePublicNavigate('custom')}
           />
@@ -413,6 +511,7 @@ export default function App() {
                   favorites={favoriteIds}
                   onToggleFavorite={handleToggleFavorite}
                   onSelectProduct={(p) => setSelectedProduct(p)}
+                  onAddToCart={(p) => handleAddToCart(p, 1)}
                   onViewCategory={handleViewCategory}
                   onRequestCustom={(categoryTitle) => {
                     setCustomInquiryPreFill(categoryTitle ? `Custom ${categoryTitle} Print` : '');
@@ -450,8 +549,23 @@ export default function App() {
         isFavorite={selectedProduct ? favoriteIds.includes(selectedProduct.id) : false}
         onToggleFavorite={handleToggleFavorite}
         onRequestOrder={handleRequestOrderFromProduct}
+        onAddToCart={(p, q, c) => handleAddToCart(p, q, c)}
         onSelectRelated={(p) => setSelectedProduct(p)}
         relatedProducts={relatedProducts}
+      />
+
+      {/* Shopping Cart Drawer */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        onUpdateQuantity={handleUpdateCartQuantity}
+        onRemoveItem={handleRemoveCartItem}
+        onClearCart={handleClearCart}
+        onSelectProduct={(p) => {
+          setIsCartOpen(false);
+          setSelectedProduct(p);
+        }}
       />
 
       {/* Favorites / Saved Creations Drawer */}

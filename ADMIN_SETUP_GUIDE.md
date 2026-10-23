@@ -18,22 +18,39 @@ Welcome to the **AV Creation** 3D Printing Studio Administration Guide. This doc
    - [Editing or Deleting Categories](#editing-or-deleting-categories)
 4. [How to Add and Manage Products / Items](#4-how-to-add-and-manage-products--items)
    - [Adding a New Product](#adding-a-new-product)
+   - [Product Pricing (INR ₹)](#product-pricing-inr-)
    - [Product Fields & Specifications](#product-fields--specifications)
    - [Uploading Images](#uploading-images)
    - [Status & Featured Showcase](#status--featured-showcase)
    - [Editing & Deleting Products](#editing--deleting-products)
-5. [Security & Role Architecture](#5-security--role-architecture)
-6. [Troubleshooting & FAQs](#6-troubleshooting--faqs)
+5. [Customer Enquiries Management](#5-customer-enquiries-management)
+   - [Viewing Enquiries](#viewing-enquiries)
+   - [Status Lifecycle (New, In Progress, Completed)](#status-lifecycle)
+   - [Internal Admin Notes](#internal-admin-notes)
+   - [Direct WhatsApp & Contact Links](#direct-whatsapp--contact-links)
+6. [Shopping Cart & WhatsApp Orders](#6-shopping-cart--whatsapp-orders)
+   - [Cart Drawer Experience](#cart-drawer-experience)
+   - [Unpriced Product Safeguards](#unpriced-product-safeguards)
+   - [WhatsApp Order Generation](#whatsapp-order-generation)
+   - [Business WhatsApp Configuration](#business-whatsapp-configuration)
+7. [Database Migration (V2)](#7-database-migration-v2)
+8. [Security & Role Architecture](#8-security--role-architecture)
+9. [Troubleshooting & FAQs](#9-troubleshooting--faqs)
 
 ---
 
 ## 1. Overview & Architecture
 
 The AV Creation catalogue is dynamically powered by **Supabase**:
-- **Database (PostgreSQL):** Stores categories, products, technical specifications, and administrator role assignments.
+- **Database (PostgreSQL):** Stores categories, products, technical specifications, customer custom-print enquiries, and administrator role assignments.
 - **Authentication (Supabase Auth):** Handles secure email and password login.
-- **Storage (Supabase Storage):** The `product-images` bucket stores high-resolution photos of 3D prints.
-- **Row-Level Security (RLS):** Allows public read access to active creations while ensuring only verified administrators can create, edit, or delete items.
+- **Storage (Supabase Storage):**
+  - `product-images` bucket: Stores high-resolution photos of 3D prints (public read, admin upload).
+  - `enquiry-attachments` bucket: Stores customer reference files and images submitted via the custom print form (public upload, admin read/manage).
+- **Row-Level Security (RLS):**
+  - Public read access for active catalogue items.
+  - Public insert access for customer custom print enquiries.
+  - Strict admin-only access for viewing enquiries, modifying records, updating notes, and updating products/categories.
 
 ---
 
@@ -74,15 +91,20 @@ In accordance with security requirements, an authenticated user is **not** an ad
 
 #### Option A: Grant Admin by User UID (Recommended)
 ```sql
-INSERT INTO public.admin_users (id, role, notes)
-VALUES ('PASTE_YOUR_COPIED_USER_UID_HERE', 'admin', 'Lead Studio Administrator')
+INSERT INTO public.admin_users (id, email, role, notes)
+VALUES (
+  'PASTE_YOUR_COPIED_USER_UID_HERE',
+  'your-admin-email@example.com',
+  'admin',
+  'Lead Studio Administrator'
+)
 ON CONFLICT (id) DO UPDATE SET role = 'admin';
 ```
 
 #### Option B: Grant Admin by User Email
 ```sql
-INSERT INTO public.admin_users (id, role, notes)
-SELECT id, 'admin', 'Lead Studio Administrator'
+INSERT INTO public.admin_users (id, email, role, notes)
+SELECT id, email, 'admin', 'Lead Studio Administrator'
 FROM auth.users
 WHERE email = 'your-admin-email@example.com'
 ON CONFLICT (id) DO UPDATE SET role = 'admin';
@@ -164,13 +186,13 @@ These categories appear on the homepage and in the Collections view even when 0 
 #### 1. Core Information
 - **Product Title:** Distinctive editorial name (e.g., *Aura Lattice Luminaire*, *Gengar Shadow Luminary*, *Dual-Rotor Gyroid Clicker*).
 - **Category:** Select which category this creation belongs to from the dropdown.
-- **Price ($ USD):** Suggested retail price or commission baseline (e.g. `48.00`).
+- **Price (INR ₹):** Product retail price in Indian Rupees (e.g., `350`, `1200`). Must be a positive numeric value or 0. Leave blank if the item is commissioned or quoted on demand — it will display as **"Price on request"** and customers will be guided to contact the studio for custom quoting.
 - **Short Overview:** A 1-line hook displayed on preview cards and horizontal carousels (e.g. *Generative dual-layered Voronoi lamp diffusing warm ambient light.*).
 - **Full Narrative Description:** In-depth description shown when a visitor clicks into the product detail modal. Explain the design inspiration, tactile qualities, and real-world usage.
 
 #### 2. Product Image
 - Click the image upload box or drag-and-drop a photo of your 3D print.
-- **Accepted formats:** PNG, JPG, WEBP (up to 15MB).
+- **Accepted formats:** PNG, JPG, WEBP (up to 8MB).
 - The file is automatically uploaded to the Supabase Storage bucket (`product-images`) and publicly served via CDN.
 - If you don't upload an image immediately, the system displays a dynamic studio vector render until an image is provided.
 
@@ -206,7 +228,90 @@ Select or add color variants (e.g., *Matte Obsidian*, *Desert Ochre*, *Silk Gold
 
 ---
 
-## 5. Security & Role Architecture
+---
+
+## 5. Customer Enquiries Management
+
+When prospective clients submit custom 3D printing requests through the public **Custom Prints** technical estimator, submissions are stored in the `enquiries` table in Supabase.
+
+### Accessing Enquiries
+1. Log in to the Admin Dashboard at `/admin`.
+2. Click **Customer Enquiries** in the left sidebar. The sidebar menu item displays a dynamic notification badge showing the number of unaddressed (`New`) enquiries.
+3. Use the search bar to filter enquiries by customer name, email, or project title.
+4. Filter by status using the quick filter pills: **All**, **New**, **In Progress**, or **Completed**.
+
+### Enquiry Details & Lifecycle
+Click **View Details** on any enquiry to open the dedicated inspection modal:
+- **Contact Info:** Customer name, email, phone/WhatsApp number.
+- **Project Specifications:** Category, quantity, dimensions, material preference, delivery timeline.
+- **Reference Attachments:** If the customer uploaded a reference image or 3D model CAD file (via the `enquiry-attachments` bucket) or provided an external link (Thingiverse, Printables, etc.), click the link or preview to inspect the file.
+- **Direct WhatsApp Chat:** Click the **WhatsApp Customer** button to open a direct chat with the customer with a pre-filled greeting.
+- **Status Updating:** Toggle status between:
+  - `New`: Newly submitted enquiry awaiting initial evaluation.
+  - `In Progress`: Slicing, estimating, or printing in progress.
+  - `Completed`: Delivered to customer or finished.
+- **Internal Admin Notes:** Keep private workshop notes (e.g., slicing settings, machine used, material batch, quote given) that are only visible to administrators. Click **Save Notes** to persist.
+
+---
+
+## 6. Shopping Cart & WhatsApp Orders
+
+AV Creations utilizes an additive-manufacturing tailored shopping experience integrated directly with WhatsApp order initiation:
+
+### Cart Drawer Experience
+- Visitors can add creations directly to their cart from product cards and from the Product Detail modal.
+- The cart drawer slides in smoothly from the right, preserving the dark cinematic theme.
+- Customers can adjust quantities with minimum 1 enforcement, view line totals, and remove items.
+- The cart persists in browser `localStorage` across page reloads.
+
+### Unpriced Product Safeguards
+- If a product does not have a price configured in Supabase, the product card clearly displays **"Price on request"**.
+- If a customer adds an unpriced product to their cart, checkout via WhatsApp is safely blocked and an alert banner lists the unpriced items requiring pricing before the order can be initiated.
+
+### WhatsApp Order Generation
+When the customer clicks **Order via WhatsApp**:
+1. The cart items, quantities, unit prices, line subtotals, and overall order total are structured into a clean, professional order message:
+   ```
+   Hello AV Creations! I'd like to order:
+
+   1. Lotus Lamp — Qty: 2 × ₹350 = ₹700
+   2. Articulated Dragon — Qty: 1 × ₹500 = ₹500
+
+   Total: ₹1,200
+
+   Please confirm availability and delivery details.
+   ```
+2. The message is URL-encoded and opened via `https://wa.me/<NUMBER>?text=<MESSAGE>` in mobile or desktop browsers.
+3. The cart is not erased merely because WhatsApp was opened, avoiding lost carts. An explicit customer action can clear the cart.
+
+### Business WhatsApp Configuration
+Set your business WhatsApp phone number in `.env`:
+```env
+VITE_WHATSAPP_NUMBER="919876543210"
+```
+The application automatically cleans spaces, `+`, and hyphens to generate valid WhatsApp international links.
+
+---
+
+## 7. Database Migration (V2)
+
+If you are upgrading an existing Supabase project, execute the migration script located at:
+```
+/supabase/migration_v2.sql
+```
+
+This migration applies:
+1. `price NUMERIC(10, 2)` column added to `products` (nullable for existing products, non-negative constraint).
+2. `enquiries` table with customer details, project specifications, status enum check, reference links, and internal admin notes.
+3. Automated `updated_at` trigger.
+4. Strict Row-Level Security (RLS) on `enquiries` (public can `INSERT`, only admins can `SELECT`, `UPDATE`, `DELETE`).
+5. `enquiry-attachments` storage bucket creation with public upload policies and admin-only management.
+
+If you are setting up a brand new Supabase database, simply run `/supabase/schema.sql`, which contains the complete unified database setup.
+
+---
+
+## 8. Security & Role Architecture
 
 The application enforces zero-trust role verification:
 
@@ -218,17 +323,18 @@ The application enforces zero-trust role verification:
    - Database policies ensure that even if someone sends raw requests via the public anon key, write operations (`INSERT`, `UPDATE`, `DELETE`) are rejected unless the user passes `is_admin()`.
 4. **Storage Policies:**
    - The `product-images` bucket allows public read access for fast image delivery, but restricts file uploads and deletions strictly to authenticated administrators.
+   - The `enquiry-attachments` bucket allows public visitors to upload reference attachments for custom prints, but restricts reading and deleting attachments to administrators.
 
 ---
 
-## 6. Troubleshooting & FAQs
+## 9. Troubleshooting & FAQs
 
 ### Q: I logged in with my Supabase email/password, but received "Access Denied: Administrator role required"?
 **Cause:** Your user exists in Supabase Auth, but has not yet been registered in the `admin_users` table.  
 **Fix:** Run this SQL query in your Supabase SQL Editor:
 ```sql
-INSERT INTO public.admin_users (id, role, notes)
-SELECT id, 'admin', 'Authorized via SQL'
+INSERT INTO public.admin_users (id, email, role, notes)
+SELECT id, email, 'admin', 'Authorized via SQL'
 FROM auth.users
 WHERE email = 'your-login-email@example.com'
 ON CONFLICT (id) DO UPDATE SET role = 'admin';
@@ -242,7 +348,7 @@ ON CONFLICT (id) DO UPDATE SET role = 'admin';
 **Fix:** In the Admin Dashboard, edit your desired product and toggle **"Feature this creation in Hero & Showcase"** to ON.
 
 ### Q: What happens if an image fails to upload?
-**Fix:** Ensure that you have run `/supabase/schema.sql`, which creates the `product-images` storage bucket and configures public read and admin upload policies. Verify that your file is under 15MB.
+**Fix:** Ensure that you have run `/supabase/schema.sql`, which creates the `product-images` storage bucket and configures public read and admin upload policies. Verify that your file is under 8MB.
 
 ---
 

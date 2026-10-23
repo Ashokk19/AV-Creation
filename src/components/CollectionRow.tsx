@@ -11,6 +11,7 @@ interface CollectionRowProps {
   favorites: string[];
   onToggleFavorite: (product: ProductItem) => void;
   onSelectProduct: (product: ProductItem) => void;
+  onAddToCart?: (product: ProductItem) => void;
   onViewCategory?: (category: string) => void;
   onRequestCustom?: (categoryTitle?: string) => void;
   categorySlug?: string;
@@ -23,6 +24,7 @@ export const CollectionRow: React.FC<CollectionRowProps> = ({
   favorites,
   onToggleFavorite,
   onSelectProduct,
+  onAddToCart,
   onViewCategory,
   onRequestCustom,
   categorySlug,
@@ -141,6 +143,7 @@ export const CollectionRow: React.FC<CollectionRowProps> = ({
                 isFavorite={favorites.includes(product.id)}
                 onToggleFavorite={onToggleFavorite}
                 onSelect={onSelectProduct}
+                onAddToCart={onAddToCart}
               />
             ))}
           </div>

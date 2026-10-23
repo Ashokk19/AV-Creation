@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bookmark, Layers, Sparkles, Send, Ruler, Clock, Weight, Cpu, ChevronRight } from 'lucide-react';
+import { X, Bookmark, Layers, Sparkles, Send, Ruler, Clock, Weight, Cpu, ChevronRight, ShoppingBag, Plus, Minus } from 'lucide-react';
 import { ProductItem, ColorVariant } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
+import { formatPriceINR } from '../lib/config';
 
 interface ProductDetailModalProps {
   product: ProductItem | null;
@@ -10,6 +11,7 @@ interface ProductDetailModalProps {
   isFavorite: boolean;
   onToggleFavorite: (product: ProductItem) => void;
   onRequestOrder: (product: ProductItem, selectedColor: ColorVariant) => void;
+  onAddToCart?: (product: ProductItem, quantity: number, selectedColor: ColorVariant) => void;
   onSelectRelated: (product: ProductItem) => void;
   relatedProducts: ProductItem[];
 }
@@ -21,16 +23,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isFavorite,
   onToggleFavorite,
   onRequestOrder,
+  onAddToCart,
   onSelectRelated,
   relatedProducts,
 }) => {
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
   const [activeAngle, setActiveAngle] = useState<'primary' | 'detail' | 'sliced'>('primary');
+  const [quantity, setQuantity] = useState(1);
 
   // Reset state when product changes
   useEffect(() => {
     setSelectedColorIndex(0);
     setActiveAngle('primary');
+    setQuantity(1);
   }, [product?.id]);
 
   // Handle ESC key to close modal
@@ -177,6 +182,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <p className="text-sm text-[#A1A1AA] mt-1">
                   {product.subtitle}
                 </p>
+
+                {/* Pricing Display */}
+                <div className="mt-3 flex items-baseline gap-2">
+                  {product.price !== undefined && product.price !== null ? (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-mono font-extrabold text-[#E7A96B]">
+                        {formatPriceINR(product.price)}
+                      </span>
+                      <span className="text-xs text-[#71717A] font-mono">per piece</span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#1C1C20] border border-[#2E2E36] text-xs font-mono text-[#A1A1AA]">
+                      <span>Price on request</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Storytelling Description */}
@@ -215,15 +236,59 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons: Add to Cart & Custom Commission */}
               <div className="pt-2 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  {/* Quantity Selector */}
+                  <div className="flex items-center gap-2 bg-[#18181A] border border-[#27272A] rounded-lg p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={quantity <= 1}
+                      className="w-8 h-8 rounded bg-[#141416] hover:bg-[#202026] text-[#A1A1AA] hover:text-[#FFFFFF] flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-8 text-center font-mono font-bold text-sm text-[#F5F3EF]">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => q + 1)}
+                      className="w-8 h-8 rounded bg-[#141416] hover:bg-[#202026] text-[#A1A1AA] hover:text-[#FFFFFF] flex items-center justify-center cursor-pointer"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Add to Cart CTA */}
+                  {onAddToCart && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddToCart(product, quantity, activeColor);
+                        onClose();
+                      }}
+                      className="flex-1 py-3 px-4 bg-[#E7A96B] hover:bg-[#F2BA82] text-[#101010] font-bold text-xs uppercase tracking-wider rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Add to Cart ({quantity})</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Custom Commission Alternative */}
                 <button
+                  type="button"
                   onClick={() => onRequestOrder(product, activeColor)}
-                  className="w-full py-3.5 px-5 bg-[#E7A96B] hover:bg-[#F2BA82] text-[#101010] font-semibold text-sm rounded-md transition-all shadow-lg shadow-[#E7A96B]/15 hover:shadow-[#E7A96B]/25 active:scale-[0.99] flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-4 bg-[#1C1C20] hover:bg-[#26262C] border border-[#2C2C32] text-[#D4D4D8] hover:text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Request Custom Print of This Design</span>
+                  <Send className="w-3.5 h-3.5 text-[#E7A96B]" />
+                  <span>Request Custom Commission Brief</span>
                 </button>
+
                 <p className="text-center text-[11px] text-[#71717A]">
                   Each piece is custom printed to order at our dedicated studio with verified tolerances.
                 </p>

@@ -11,6 +11,7 @@ interface CollectionsViewProps {
   favorites: string[];
   onToggleFavorite: (product: ProductItem) => void;
   onSelectProduct: (product: ProductItem) => void;
+  onAddToCart?: (product: ProductItem) => void;
   onBackToDiscover: () => void;
   onRequestCustom?: () => void;
 }
@@ -22,6 +23,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   favorites,
   onToggleFavorite,
   onSelectProduct,
+  onAddToCart,
   onBackToDiscover,
   onRequestCustom,
 }) => {
@@ -231,6 +233,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                   isFavorite={favorites.includes(product.id)}
                   onToggleFavorite={onToggleFavorite}
                   onSelect={onSelectProduct}
+                  onAddToCart={onAddToCart}
                 />
               </div>
             ))}

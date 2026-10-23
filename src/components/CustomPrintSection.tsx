@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle2, Calculator, Sparkles, Layers, Clock, Cpu, Upload } from 'lucide-react';
 import { ProductCategory, FilamentMaterial, CustomInquiry } from '../types';
 import { calculatePrintEstimate } from '../utils/estimateLogic';
+import { submitEnquiry } from '../services/enquiryService';
 
 interface CustomPrintSectionProps {
   initialItemName?: string;
@@ -22,6 +23,8 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [targetTimeline, setTargetTimeline] = useState<'flexible' | '2-3-weeks' | 'urgent-1-week'>('flexible');
   const [referenceFile, setReferenceFile] = useState<string>('');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Interactive Estimator Parameters
   const [estWidth, setEstWidth] = useState(150);
@@ -53,14 +56,33 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
     quantity: quantity,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !description.trim()) {
+      setSubmitError('Please complete all required fields.');
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    setSubmitError(null);
+
+    try {
+      await submitEnquiry(
+        {
+          customer_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || undefined,
+          project_category: projectCategory,
+          description: description.trim(),
+          reference_link: referenceFile.trim() || undefined,
+          dimensions: `${estWidth} × ${estDepth} × ${estHeight} mm`,
+          material_preference: materialPreference,
+          quantity: quantity,
+          target_timeline: targetTimeline,
+        },
+        attachmentFile
+      );
+
       const inquiryData: CustomInquiry = {
         fullName,
         email,
@@ -71,11 +93,15 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
         quantity,
         targetTimeline,
         estimatedDimensions: `${estWidth} × ${estDepth} × ${estHeight} mm`,
-        referenceUrlOrNotes: referenceFile,
+        referenceUrlOrNotes: attachmentFile ? `${attachmentFile.name} (Uploaded)` : referenceFile,
       };
       setSubmittedInquiry(inquiryData);
+    } catch (err: any) {
+      console.error('Failed to submit enquiry:', err);
+      setSubmitError(err.message || 'Failed to submit enquiry. Please try again.');
+    } finally {
       setIsSubmitting(false);
-    }, 600);
+    }
   };
 
   const handleReset = () => {
@@ -85,6 +111,8 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
     setEmail('');
     setPhone('');
     setReferenceFile('');
+    setAttachmentFile(null);
+    setSubmitError(null);
   };
 
   return (
@@ -378,37 +406,84 @@ export const CustomPrintSection: React.FC<CustomPrintSectionProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  {/* File Attachment Upload */}
                   <div>
                     <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
-                      File Reference / 3D Model Link (Optional)
+                      Attach Reference Photo / 3D Model / Blueprint (Optional, max 10MB)
                     </label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1C1C20] hover:bg-[#25252A] border border-[#2D2D34] rounded-md text-xs text-[#E7A96B] font-medium cursor-pointer transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{attachmentFile ? 'Change File' : 'Choose File'}</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,.stl,.obj,.pdf,.zip"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 10 * 1024 * 1024) {
+                                alert('Attachment exceeds 10MB limit.');
+                                return;
+                              }
+                              setAttachmentFile(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {attachmentFile && (
+                        <div className="flex items-center gap-2 text-xs text-[#F5F3EF] bg-[#18181C] px-3 py-1.5 rounded border border-[#2E2E34]">
+                          <span className="truncate max-w-[200px] font-mono text-[11px]">{attachmentFile.name}</span>
+                          <span className="text-[10px] text-[#71717A]">({(attachmentFile.size / 1024).toFixed(0)} KB)</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentFile(null)}
+                            className="text-[#8E8E93] hover:text-red-400 text-xs ml-1"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                        Or External Model Link (Printables, Thingiverse, Drive)
+                      </label>
                       <input
                         type="text"
-                        placeholder="Printables, Thingiverse, or Drive link"
+                        placeholder="https://..."
                         value={referenceFile}
                         onChange={(e) => setReferenceFile(e.target.value)}
                         className="w-full bg-[#18181C] border border-[#27272A] rounded-md px-3.5 py-2 text-xs text-[#F5F3EF] placeholder-[#555] focus:outline-none focus:border-[#E7A96B]"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
-                      Target Schedule
-                    </label>
-                    <select
-                      value={targetTimeline}
-                      onChange={(e) => setTargetTimeline(e.target.value as any)}
-                      className="w-full bg-[#18181C] border border-[#27272A] rounded-md px-3.5 py-2 text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E7A96B]"
-                    >
-                      <option value="flexible">Flexible (Standard 2 weeks)</option>
-                      <option value="2-3-weeks">Target within 2–3 weeks</option>
-                      <option value="urgent-1-week">Rush Priority (1 week)</option>
-                    </select>
+                    <div>
+                      <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                        Target Schedule
+                      </label>
+                      <select
+                        value={targetTimeline}
+                        onChange={(e) => setTargetTimeline(e.target.value as any)}
+                        className="w-full bg-[#18181C] border border-[#27272A] rounded-md px-3.5 py-2 text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E7A96B]"
+                      >
+                        <option value="flexible">Flexible (Standard 2 weeks)</option>
+                        <option value="2-3-weeks">Target within 2–3 weeks</option>
+                        <option value="urgent-1-week">Rush Priority (1 week)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
+
+                {submitError && (
+                  <div className="p-3 bg-red-950/40 border border-red-500/40 rounded text-xs text-red-200">
+                    {submitError}
+                  </div>
+                )}
 
                 <div className="pt-2">
                   <button

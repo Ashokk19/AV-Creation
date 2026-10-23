@@ -336,6 +336,7 @@ export async function createProduct(
     short_description?: string;
     description?: string;
     category_id: string;
+    price?: number | null;
     is_featured: boolean;
     status: 'active' | 'draft';
   },
@@ -386,6 +387,11 @@ export async function createProduct(
     }
   }
 
+  const cleanPrice =
+    data.price !== undefined && data.price !== null && !isNaN(Number(data.price)) && Number(data.price) >= 0
+      ? Number(data.price)
+      : null;
+
   const { data: created, error } = await client
     .from('products')
     .insert([
@@ -396,6 +402,7 @@ export async function createProduct(
         description: data.description?.trim() || null,
         image_path: finalImagePath,
         category_id: data.category_id,
+        price: cleanPrice,
         is_featured: Boolean(data.is_featured),
         status: data.status || 'active',
       },
@@ -423,6 +430,7 @@ export async function updateProduct(
     short_description?: string;
     description?: string;
     category_id: string;
+    price?: number | null;
     is_featured: boolean;
     status: 'active' | 'draft';
   },
@@ -437,11 +445,17 @@ export async function updateProduct(
     throw new Error('Product name is required.');
   }
 
+  const cleanPrice =
+    data.price !== undefined && data.price !== null && !isNaN(Number(data.price)) && Number(data.price) >= 0
+      ? Number(data.price)
+      : null;
+
   const updatePayload: Record<string, any> = {
     name: data.name.trim(),
     short_description: data.short_description?.trim() || null,
     description: data.description?.trim() || null,
     category_id: data.category_id,
+    price: cleanPrice,
     is_featured: Boolean(data.is_featured),
     status: data.status || 'active',
   };
@@ -517,6 +531,7 @@ export function mapProductRecordToItem(record: ProductRecord): ProductItem {
     functionType: 'decorative',
     shortDescription: record.short_description || 'High-fidelity 3D printed creation by AV Creation.',
     storyDescription: record.description || record.short_description || 'Bespoke creation produced on calibrated studio CoreXY extruders.',
+    price: record.price !== undefined && record.price !== null ? Number(record.price) : null,
     featured: record.is_featured,
     trending: record.is_featured,
     recentlyAdded: true,

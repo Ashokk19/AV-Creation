@@ -15,6 +15,7 @@ export interface ProductRecord {
   image_path: string;
   image_url?: string;
   category_id: string;
+  price?: number | null;
   is_featured: boolean;
   status: 'active' | 'draft';
   created_at?: string;
@@ -26,8 +27,21 @@ export interface AdminUser {
   id: string;
   email: string;
   role: 'admin' | 'super_admin';
+  notes?: string | null;
   created_at?: string;
 }
+
+export type ProductCategory =
+  | 'ambient-lighting'
+  | 'articulated-collectible'
+  | 'home-living'
+  | 'miniature-worlds'
+  | 'custom-creations'
+  | 'tea-lights'
+  | 'clickers'
+  | 'pokemon'
+  | 'wall-decors'
+  | string;
 
 export type ProductFunctionType = 'decorative' | 'functional' | 'hybrid';
 
@@ -40,6 +54,7 @@ export type FilamentMaterial =
   | 'Carbon Fiber PETG';
 
 export interface ColorVariant {
+  id?: string;
   name: string;
   hex: string;
   filamentType: string;
@@ -70,6 +85,7 @@ export interface ProductItem {
   functionType: ProductFunctionType;
   shortDescription: string;
   storyDescription: string;
+  price?: number | null;
   featured: boolean;
   trending: boolean;
   recentlyAdded: boolean;
@@ -100,4 +116,30 @@ export interface CustomInquiry {
   description: string;
   quantity: number;
   targetTimeline: 'flexible' | '2-3-weeks' | 'urgent-1-week';
+}
+
+export interface CustomerEnquiry {
+  id: string;
+  customer_name: string;
+  email: string;
+  phone?: string | null;
+  project_category?: string | null;
+  description: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  reference_link?: string | null;
+  dimensions?: string | null;
+  material_preference?: string | null;
+  quantity: number;
+  target_timeline?: string | null;
+  status: 'new' | 'in_progress' | 'completed';
+  admin_notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CartItem {
+  product: ProductItem;
+  quantity: number;
+  selectedColor?: ColorVariant;
 }

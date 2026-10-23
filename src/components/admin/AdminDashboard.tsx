@@ -20,8 +20,16 @@ import {
   X,
   BookOpen,
   Key,
+  MessageSquare,
+  Phone,
+  Mail,
+  Clock,
+  Paperclip,
+  Check,
+  Send,
+  Calendar,
 } from 'lucide-react';
-import { CategoryRecord, ProductRecord } from '../../types';
+import { CategoryRecord, ProductRecord, CustomerEnquiry } from '../../types';
 import {
   fetchCategories,
   fetchProducts,
@@ -32,8 +40,15 @@ import {
   updateCategory,
   deleteCategory,
 } from '../../services/productService';
+import {
+  fetchEnquiries,
+  updateEnquiryStatus,
+  updateEnquiryNotes,
+  deleteEnquiry,
+} from '../../services/enquiryService';
 import { signOutAdmin } from '../../services/authService';
 import { SUPABASE_SQL_SCHEMA, isSupabaseConfigured, getProductImageUrl } from '../../lib/supabase';
+import { formatPriceINR } from '../../lib/config';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -41,7 +56,7 @@ interface AdminDashboardProps {
   adminEmail?: string;
 }
 
-type TabType = 'overview' | 'products' | 'categories' | 'add-product' | 'add-category' | 'database' | 'guide';
+type TabType = 'overview' | 'products' | 'categories' | 'enquiries' | 'add-product' | 'add-category' | 'database' | 'guide';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
@@ -51,6 +66,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [products, setProducts] = useState<ProductRecord[]>([]);
+  const [enquiries, setEnquiries] = useState<CustomerEnquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -58,6 +74,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodName, setProdName] = useState('');
   const [prodCategory, setProdCategory] = useState('');
+  const [prodPrice, setProdPrice] = useState('');
   const [prodShortDesc, setProdShortDesc] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
@@ -75,11 +92,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Delete Confirmation state
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    type: 'product' | 'category';
+    type: 'product' | 'category' | 'enquiry';
     id: string;
     name: string;
     imagePath?: string;
   } | null>(null);
+
+  // Customer Enquiries Management state
+  const [enquirySearch, setEnquirySearch] = useState('');
+  const [enquiryStatusFilter, setEnquiryStatusFilter] = useState<'all' | 'new' | 'in_progress' | 'completed'>('all');
+  const [selectedEnquiry, setSelectedEnquiry] = useState<CustomerEnquiry | null>(null);
+  const [enquiryNotesInput, setEnquiryNotesInput] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   // Search in products table
   const [productSearch, setProductSearch] = useState('');
@@ -91,12 +116,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [cats, prods] = await Promise.all([
+      const [cats, prods, enqs] = await Promise.all([
         fetchCategories(),
         fetchProducts({ status: 'all' }),
+        fetchEnquiries(),
       ]);
       setCategories(cats);
       setProducts(prods);
+      setEnquiries(enqs);
       if (cats.length > 0 && !prodCategory) {
         setProdCategory(cats[0].id);
       }
@@ -145,6 +172,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingProductId(product.id);
     setProdName(product.name);
     setProdCategory(product.category_id);
+    setProdPrice(product.price !== undefined && product.price !== null ? String(product.price) : '');
     setProdShortDesc(product.short_description || '');
     setProdDesc(product.description || '');
     setProdFeatured(product.is_featured);
@@ -158,6 +186,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdName('');
+    setProdPrice('');
     setProdShortDesc('');
     setProdDesc('');
     setProdFeatured(false);
@@ -188,6 +217,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
+    let parsedPrice: number | null = null;
+    if (prodPrice.trim() !== '') {
+      const num = parseFloat(prodPrice.trim());
+      if (isNaN(num) || num < 0) {
+        showNotification('error', 'Product price must be a valid non-negative number.');
+        return;
+      }
+      parsedPrice = Math.round(num * 100) / 100;
+    }
+
     setIsSubmittingProduct(true);
     try {
       if (editingProductId) {
@@ -195,6 +234,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           editingProductId,
           {
             name: prodName,
+            price: parsedPrice,
             short_description: prodShortDesc,
             description: prodDesc,
             category_id: prodCategory,
@@ -208,6 +248,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await createProduct(
           {
             name: prodName,
+            price: parsedPrice,
             short_description: prodShortDesc,
             description: prodDesc,
             category_id: prodCategory,
@@ -267,9 +308,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (deleteConfirmation.type === 'product') {
         await deleteProduct(deleteConfirmation.id, deleteConfirmation.imagePath);
         showNotification('success', `Product "${deleteConfirmation.name}" deleted.`);
-      } else {
+      } else if (deleteConfirmation.type === 'category') {
         await deleteCategory(deleteConfirmation.id);
         showNotification('success', `Category "${deleteConfirmation.name}" deleted.`);
+      } else if (deleteConfirmation.type === 'enquiry') {
+        await deleteEnquiry(deleteConfirmation.id, deleteConfirmation.imagePath);
+        showNotification('success', `Enquiry from "${deleteConfirmation.name}" deleted.`);
+        if (selectedEnquiry && selectedEnquiry.id === deleteConfirmation.id) {
+          setSelectedEnquiry(null);
+        }
       }
       setDeleteConfirmation(null);
       await loadData();
@@ -277,6 +324,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('error', err.message || 'Deletion failed.');
     }
   };
+
+  // Handle Enquiry Status Update
+  const handleUpdateEnquiryStatus = async (
+    enquiryId: string,
+    newStatus: 'new' | 'in_progress' | 'completed'
+  ) => {
+    setIsUpdatingStatus(true);
+    try {
+      const updated = await updateEnquiryStatus(enquiryId, newStatus);
+      setEnquiries((prev) => prev.map((e) => (e.id === enquiryId ? updated : e)));
+      if (selectedEnquiry && selectedEnquiry.id === enquiryId) {
+        setSelectedEnquiry(updated);
+      }
+      showNotification('success', `Enquiry status changed to "${newStatus.replace('_', ' ').toUpperCase()}".`);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to update enquiry status.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Handle Enquiry Internal Notes Update
+  const handleSaveEnquiryNotes = async (enquiryId: string) => {
+    setIsSavingNotes(true);
+    try {
+      const updated = await updateEnquiryNotes(enquiryId, enquiryNotesInput);
+      setEnquiries((prev) => prev.map((e) => (e.id === enquiryId ? updated : e)));
+      if (selectedEnquiry && selectedEnquiry.id === enquiryId) {
+        setSelectedEnquiry(updated);
+      }
+      showNotification('success', 'Admin internal notes saved successfully.');
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to save admin notes.');
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleOpenEnquiryModal = (enquiry: CustomerEnquiry) => {
+    setSelectedEnquiry(enquiry);
+    setEnquiryNotesInput(enquiry.admin_notes || '');
+  };
+
+  // Filtered Enquiries
+  const filteredEnquiries = enquiries.filter((e) => {
+    const matchesStatus = enquiryStatusFilter === 'all' || e.status === enquiryStatusFilter;
+    const query = enquirySearch.trim().toLowerCase();
+    const matchesSearch =
+      query === '' ||
+      e.customer_name.toLowerCase().includes(query) ||
+      e.email.toLowerCase().includes(query) ||
+      (e.phone || '').toLowerCase().includes(query) ||
+      e.description.toLowerCase().includes(query) ||
+      (e.project_category || '').toLowerCase().includes(query);
+
+    return matchesStatus && matchesSearch;
+  });
+
+  const newEnquiriesCount = enquiries.filter((e) => e.status === 'new').length;
 
   // Filtered Products for Products Tab
   const filteredProducts = products.filter((p) => {
@@ -346,11 +452,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Admin Workspace with Sidebar / Tabs */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar (3 Cols) */}
+        {/* Navigation Sidebar (3 Cols) */}
         <aside className="md:col-span-3 bg-[#141416] border border-[#222226] rounded-xl p-3 space-y-1.5">
           {[
             { id: 'overview', label: 'Overview', icon: LayoutDashboard },
             { id: 'products', label: 'Products', icon: Package, badge: products.length },
             { id: 'categories', label: 'Categories', icon: FolderTree, badge: categories.length },
+            {
+              id: 'enquiries',
+              label: 'Customer Enquiries',
+              icon: MessageSquare,
+              badge: newEnquiriesCount > 0 ? `${newEnquiriesCount} New` : enquiries.length,
+            },
             { id: 'add-product', label: editingProductId ? 'Edit Product' : 'Add Product', icon: PlusCircle },
             { id: 'add-category', label: 'Add Category', icon: PlusCircle },
             { id: 'database', label: 'Supabase SQL Setup', icon: Database },
@@ -423,7 +536,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Metrics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-[#141416] border border-[#222226] p-5 rounded-xl flex items-center justify-between">
                   <div>
                     <span className="text-xs font-mono text-[#8E8E93] uppercase">Total Products</span>
@@ -451,6 +564,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-[#1E1E22] flex items-center justify-center text-[#E7A96B]">
                     <FolderTree className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('enquiries')}
+                  className="bg-[#141416] border border-[#222226] hover:border-[#E7A96B]/50 p-5 rounded-xl flex items-center justify-between cursor-pointer transition-all group"
+                  title="View Customer Enquiries"
+                >
+                  <div>
+                    <span className="text-xs font-mono text-[#8E8E93] uppercase group-hover:text-[#E7A96B] transition-colors">
+                      Customer Enquiries
+                    </span>
+                    <div className="text-2xl font-extrabold text-[#F5F3EF] mt-1 font-mono flex items-center gap-2">
+                      <span>{enquiries.length}</span>
+                      {newEnquiriesCount > 0 && (
+                        <span className="text-[11px] font-sans font-bold bg-[#E7A96B]/20 text-[#E7A96B] px-2 py-0.5 rounded-full border border-[#E7A96B]/30">
+                          {newEnquiriesCount} New
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[#71717A] mt-1">
+                      Custom print briefs received
+                    </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-lg bg-[#1E1E22] group-hover:bg-[#E7A96B]/15 flex items-center justify-center text-[#E7A96B] transition-colors">
+                    <MessageSquare className="w-5 h-5" />
                   </div>
                 </div>
 
@@ -485,6 +624,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Upload New Product</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('enquiries')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#F5F3EF] bg-[#1E1E22] hover:bg-[#28282E] border border-[#2D2D32] rounded-md transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-[#E7A96B]" />
+                    <span>Customer Enquiries ({newEnquiriesCount} New)</span>
                   </button>
                   <button
                     onClick={() => {
@@ -530,6 +676,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <tr>
                           <th className="p-3">Product</th>
                           <th className="p-3">Category</th>
+                          <th className="p-3">Price</th>
                           <th className="p-3">Status</th>
                           <th className="p-3">Created</th>
                           <th className="p-3 text-right">Actions</th>
@@ -560,6 +707,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </td>
                             <td className="p-3 text-[#A1A1AA]">
                               {prod.category?.name || 'Unassigned'}
+                            </td>
+                            <td className="p-3 font-mono text-[#E7A96B]">
+                              {prod.price != null ? (
+                                formatPriceINR(prod.price)
+                              ) : (
+                                <span className="text-[#71717A] text-[10px] italic">On Request</span>
+                              )}
                             </td>
                             <td className="p-3">
                               <span
@@ -682,6 +836,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <tr>
                         <th className="p-3">Product Name</th>
                         <th className="p-3">Category</th>
+                        <th className="p-3">Price</th>
                         <th className="p-3">Featured</th>
                         <th className="p-3">Status</th>
                         <th className="p-3 text-right">Actions</th>
@@ -712,6 +867,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                           <td className="p-3 text-[#A1A1AA]">
                             {prod.category?.name || 'Unassigned'}
+                          </td>
+                          <td className="p-3 font-mono font-medium text-[#E7A96B]">
+                            {prod.price != null ? (
+                              formatPriceINR(prod.price)
+                            ) : (
+                              <span className="text-[#71717A] text-[11px] font-normal italic">
+                                Price on request
+                              </span>
+                            )}
                           </td>
                           <td className="p-3">
                             {prod.is_featured ? (
@@ -853,6 +1017,254 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )}
 
+          {/* TAB: CUSTOMER ENQUIRIES */}
+          {activeTab === 'enquiries' && (
+            <div className="bg-[#141416] border border-[#222226] rounded-xl overflow-hidden space-y-4 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-[#F5F3EF]">Customer Enquiries</h2>
+                    {newEnquiriesCount > 0 && (
+                      <span className="text-[10px] font-mono font-bold bg-[#E7A96B]/20 text-[#E7A96B] px-2 py-0.5 rounded-full border border-[#E7A96B]/30">
+                        {newEnquiriesCount} New
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] mt-0.5">
+                    Review and manage custom 3D printing requests submitted through the website form.
+                  </p>
+                </div>
+                <button
+                  onClick={loadData}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#A1A1AA] hover:text-[#FFFFFF] bg-[#1A1A1E] hover:bg-[#25252A] border border-[#2A2A2E] rounded-md transition-colors cursor-pointer self-start sm:self-auto"
+                  title="Refresh Enquiries"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {/* Search & Status Filters */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex-1 min-w-[240px] relative">
+                  <input
+                    type="text"
+                    value={enquirySearch}
+                    onChange={(e) => setEnquirySearch(e.target.value)}
+                    placeholder="Search by customer name, email, phone, or description..."
+                    className="w-full bg-[#1A1A1E] border border-[#2A2A2E] rounded-md pl-9 pr-3 py-1.5 text-xs text-[#F5F3EF] placeholder-[#555] focus:outline-none focus:border-[#E7A96B]"
+                  />
+                  <Search className="w-3.5 h-3.5 text-[#71717A] absolute left-3 top-2.5 pointer-events-none" />
+                </div>
+
+                {/* Status Filter Buttons */}
+                <div className="flex items-center gap-1.5 bg-[#18181C] p-1 rounded-lg border border-[#242428]">
+                  {[
+                    { id: 'all', label: 'All', count: enquiries.length },
+                    { id: 'new', label: 'New', count: enquiries.filter((e) => e.status === 'new').length },
+                    { id: 'in_progress', label: 'In Progress', count: enquiries.filter((e) => e.status === 'in_progress').length },
+                    { id: 'completed', label: 'Completed', count: enquiries.filter((e) => e.status === 'completed').length },
+                  ].map((filter) => (
+                    <button
+                      key={filter.id}
+                      onClick={() => setEnquiryStatusFilter(filter.id as any)}
+                      className={`px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        enquiryStatusFilter === filter.id
+                          ? 'bg-[#E7A96B] text-[#101010] font-bold shadow-xs'
+                          : 'text-[#A1A1AA] hover:text-[#F5F3EF] hover:bg-[#222228]'
+                      }`}
+                    >
+                      <span>{filter.label}</span>
+                      <span className={`text-[10px] font-mono px-1 rounded ${
+                        enquiryStatusFilter === filter.id ? 'bg-[#101010]/20 text-[#101010]' : 'bg-[#141416] text-[#71717A]'
+                      }`}>
+                        {filter.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Enquiries Table or Empty State */}
+              {filteredEnquiries.length === 0 ? (
+                <div className="p-12 text-center text-xs text-[#71717A] space-y-3 bg-[#111113] rounded-lg border border-[#1E1E22]">
+                  <MessageSquare className="w-8 h-8 text-[#444] mx-auto opacity-60" />
+                  <div className="text-sm font-semibold text-[#A1A1AA]">
+                    {enquirySearch || enquiryStatusFilter !== 'all'
+                      ? 'No enquiries match your search or filter'
+                      : 'No customer enquiries yet'}
+                  </div>
+                  <p className="max-w-md mx-auto text-[11px] text-[#666]">
+                    {enquirySearch || enquiryStatusFilter !== 'all'
+                      ? 'Try clearing your search keyword or switching the status filter back to All.'
+                      : 'Submissions from the public website custom-print request form will appear here automatically.'}
+                  </p>
+                  {(enquirySearch || enquiryStatusFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setEnquirySearch('');
+                        setEnquiryStatusFilter('all');
+                      }}
+                      className="px-3 py-1 bg-[#1E1E22] hover:bg-[#28282E] text-xs text-[#E7A96B] rounded transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-[#222226] rounded-lg">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#18181C] text-[#8E8E93] font-mono border-b border-[#222226]">
+                      <tr>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Project Brief</th>
+                        <th className="p-3">Reference / File</th>
+                        <th className="p-3">Submitted</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#222226]">
+                      {filteredEnquiries.map((enq) => (
+                        <tr key={enq.id} className="hover:bg-[#1A1A1E] transition-colors">
+                          <td className="p-3">
+                            <div className="font-semibold text-[#F5F3EF]">
+                              {enq.customer_name}
+                            </div>
+                            <div className="flex flex-col gap-0.5 mt-0.5 text-[11px] text-[#A1A1AA]">
+                              <a
+                                href={`mailto:${enq.email}`}
+                                className="inline-flex items-center gap-1 hover:text-[#E7A96B] transition-colors"
+                              >
+                                <Mail className="w-3 h-3 text-[#71717A]" />
+                                <span>{enq.email}</span>
+                              </a>
+                              {enq.phone && (
+                                <a
+                                  href={`https://wa.me/${enq.phone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-emerald-400/90 hover:text-emerald-300 transition-colors"
+                                  title="Chat on WhatsApp"
+                                >
+                                  <Phone className="w-3 h-3 text-emerald-500" />
+                                  <span>{enq.phone}</span>
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 max-w-[280px]">
+                            {enq.project_category && (
+                              <span className="inline-block text-[10px] font-mono bg-[#1E1E22] text-[#E7A96B] px-1.5 py-0.5 rounded border border-[#2A2A2E] mb-1">
+                                {enq.project_category}
+                              </span>
+                            )}
+                            <p className="text-[#A1A1AA] line-clamp-2 leading-relaxed">
+                              {enq.description}
+                            </p>
+                            {enq.admin_notes && (
+                              <div className="mt-1 text-[10px] text-[#71717A] italic flex items-center gap-1">
+                                <span className="font-semibold text-[#A1A1AA]">Note:</span>
+                                <span className="truncate max-w-[200px]">{enq.admin_notes}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="flex flex-col gap-1">
+                              {enq.attachment_url ? (
+                                <a
+                                  href={enq.attachment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-[#E7A96B] hover:underline"
+                                  title={enq.attachment_name || 'View Attachment'}
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  <span className="truncate max-w-[120px]">
+                                    {enq.attachment_name || 'Attachment'}
+                                  </span>
+                                </a>
+                              ) : null}
+                              {enq.reference_link ? (
+                                <a
+                                  href={enq.reference_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] text-[#A1A1AA] hover:text-[#F5F3EF]"
+                                >
+                                  <ExternalLink className="w-3 h-3 text-[#71717A]" />
+                                  <span>Reference Link</span>
+                                </a>
+                              ) : null}
+                              {!enq.attachment_url && !enq.reference_link && (
+                                <span className="text-[#555] font-mono text-[11px]">—</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-[#71717A] font-mono text-[11px] whitespace-nowrap">
+                            {enq.created_at ? (
+                              <>
+                                <div>{new Date(enq.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                                <div className="text-[10px] text-[#555]">
+                                  {new Date(enq.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </>
+                            ) : (
+                              'Recent'
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <select
+                              value={enq.status}
+                              onChange={(e) => handleUpdateEnquiryStatus(enq.id, e.target.value as any)}
+                              className={`px-2 py-1 rounded text-[10px] font-mono font-semibold border cursor-pointer focus:outline-none ${
+                                enq.status === 'new'
+                                  ? 'bg-amber-950/60 text-amber-300 border-amber-800/40'
+                                  : enq.status === 'in_progress'
+                                  ? 'bg-blue-950/60 text-blue-300 border-blue-800/40'
+                                  : 'bg-emerald-950/60 text-emerald-300 border-emerald-800/40'
+                              }`}
+                            >
+                              <option value="new">New</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                          </td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEnquiryModal(enq)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#1E1E22] hover:bg-[#28282E] text-[#F5F3EF] hover:text-[#E7A96B] rounded text-xs transition-colors cursor-pointer border border-[#2D2D32]"
+                                title="View Complete Enquiry Details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Details</span>
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setDeleteConfirmation({
+                                    type: 'enquiry',
+                                    id: enq.id,
+                                    name: `${enq.customer_name}'s enquiry`,
+                                    imagePath: enq.attachment_url || undefined,
+                                  })
+                                }
+                                className="p-1.5 text-[#71717A] hover:text-red-400 hover:bg-red-950/30 rounded transition-colors"
+                                title="Delete Enquiry"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB 4: ADD / EDIT PRODUCT */}
           {activeTab === 'add-product' && (
             <div className="bg-[#141416] border border-[#222226] rounded-xl p-6 space-y-6">
@@ -876,7 +1288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <form onSubmit={handleProductSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
                       Product Name *
@@ -907,6 +1319,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
+                      Price in INR (₹)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-semibold text-[#E7A96B] font-mono">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 350 (Empty = On request)"
+                        value={prodPrice}
+                        onChange={(e) => setProdPrice(e.target.value)}
+                        className="w-full bg-[#18181C] border border-[#27272A] rounded-md pl-7 pr-3 py-2 text-xs font-mono text-[#F5F3EF] focus:outline-none focus:border-[#E7A96B]"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1194,13 +1624,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </span>
                       <div className="bg-[#0D0D0F] border border-[#2B2B32] p-3 rounded-lg flex items-center justify-between gap-4 font-mono text-[11px] text-[#E7A96B]">
                         <code>
-                          INSERT INTO public.admin_users (id, role, notes)<br />
-                          SELECT id, &apos;admin&apos;, &apos;Lead Administrator&apos; FROM auth.users WHERE email = &apos;your-email@example.com&apos;<br />
+                          INSERT INTO public.admin_users (id, email, role, notes)<br />
+                          SELECT id, email, &apos;admin&apos;, &apos;Lead Administrator&apos; FROM auth.users WHERE email = &apos;your-email@example.com&apos;<br />
                           ON CONFLICT (id) DO UPDATE SET role = &apos;admin&apos;;
                         </code>
                         <button
                           onClick={() => {
-                            const sql = `INSERT INTO public.admin_users (id, role, notes)\nSELECT id, 'admin', 'Lead Administrator'\nFROM auth.users\nWHERE email = 'your-email@example.com'\nON CONFLICT (id) DO UPDATE SET role = 'admin';`;
+                            const sql = `INSERT INTO public.admin_users (id, email, role, notes)\nSELECT id, email, 'admin', 'Lead Administrator'\nFROM auth.users\nWHERE email = 'your-email@example.com'\nON CONFLICT (id) DO UPDATE SET role = 'admin';`;
                             navigator.clipboard.writeText(sql);
                             showNotification('success', 'Admin grant SQL copied to clipboard! Replace your-email@example.com before running.');
                           }}
@@ -1302,7 +1732,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </p>
                   <ul className="list-disc pl-5 space-y-1.5 text-[#A1A1AA]">
                     <li>
-                      <strong className="text-[#F5F3EF]">Product Image Upload:</strong> Drag &amp; drop or browse a photo (PNG, JPG, WEBP up to 15MB). The image uploads directly to your Supabase Storage bucket (<code className="text-[#E7A96B]">product-images</code>) and is delivered via CDN.
+                      <strong className="text-[#F5F3EF]">Product Image Upload:</strong> Drag &amp; drop or browse a photo (PNG, JPG, WEBP up to 8MB). The image uploads directly to your Supabase Storage bucket (<code className="text-[#E7A96B]">product-images</code>) and is delivered via CDN.
                     </li>
                     <li>
                       <strong className="text-[#F5F3EF]">3D Technical Specs:</strong> Add material (PLA+, PETG, Silk PLA, Carbon Fiber), machine print duration (e.g. 7.5 hrs), sub-fractional layer height (e.g. 0.12mm), infill pattern, dimensions, and weight.
@@ -1327,6 +1757,303 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </main>
       </div>
 
+      {/* Complete Customer Enquiry Details Modal */}
+      {selectedEnquiry && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#141416] border border-[#2B2B30] rounded-2xl max-w-2xl w-full p-6 sm:p-7 space-y-6 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-[#222226] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono uppercase tracking-wider text-[#E7A96B] font-bold">
+                    Custom Print Request
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                      selectedEnquiry.status === 'new'
+                        ? 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
+                        : selectedEnquiry.status === 'in_progress'
+                        ? 'bg-blue-950/60 text-blue-300 border border-blue-800/40'
+                        : 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40'
+                    }`}
+                  >
+                    {selectedEnquiry.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-[#F5F3EF] mt-1">
+                  {selectedEnquiry.customer_name}
+                </h3>
+                <div className="flex items-center gap-3 text-xs text-[#71717A] font-mono mt-1">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-[#555]" />
+                    {new Date(selectedEnquiry.created_at).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}{' '}
+                    at{' '}
+                    {new Date(selectedEnquiry.created_at).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedEnquiry(null)}
+                className="p-1.5 text-[#71717A] hover:text-[#FFFFFF] hover:bg-[#1E1E22] rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Customer Contact & Direct Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#18181C] border border-[#27272A] p-4 rounded-xl">
+              <div>
+                <span className="text-[11px] font-mono text-[#71717A] uppercase block">
+                  Email Address
+                </span>
+                <a
+                  href={`mailto:${selectedEnquiry.email}`}
+                  className="text-xs text-[#F5F3EF] hover:text-[#E7A96B] transition-colors flex items-center gap-1.5 mt-1 font-medium"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#E7A96B]" />
+                  <span>{selectedEnquiry.email}</span>
+                </a>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-mono text-[#71717A] uppercase block">
+                  Phone / WhatsApp
+                </span>
+                {selectedEnquiry.phone ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-[#F5F3EF] font-mono font-medium">
+                      {selectedEnquiry.phone}
+                    </span>
+                    <a
+                      href={`https://wa.me/${selectedEnquiry.phone.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#101010] bg-emerald-400 hover:bg-emerald-300 px-2 py-0.5 rounded transition-colors"
+                      title="Open WhatsApp chat with customer"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                ) : (
+                  <span className="text-xs text-[#71717A] italic mt-1 block">Not provided</span>
+                )}
+              </div>
+            </div>
+
+            {/* Project Specifications */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-mono uppercase tracking-wider text-[#8E8E93] font-semibold">
+                Project Requirements & Description
+              </h4>
+
+              <div className="bg-[#18181C] border border-[#27272A] p-4 rounded-xl space-y-3 text-xs leading-relaxed text-[#D4D4D8]">
+                {selectedEnquiry.project_category && (
+                  <div className="inline-block text-[11px] font-mono bg-[#E7A96B]/15 text-[#E7A96B] px-2 py-0.5 rounded border border-[#E7A96B]/30 font-semibold">
+                    Category: {selectedEnquiry.project_category}
+                  </div>
+                )}
+                <p className="whitespace-pre-wrap">{selectedEnquiry.description}</p>
+
+                {/* Additional Spec Pills */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#242428] text-[11px] font-mono">
+                  {selectedEnquiry.quantity && (
+                    <div className="bg-[#131315] p-2 rounded border border-[#222226]">
+                      <span className="text-[#71717A] block text-[10px]">Quantity</span>
+                      <span className="text-[#F5F3EF] font-bold">{selectedEnquiry.quantity} pcs</span>
+                    </div>
+                  )}
+                  {selectedEnquiry.material_preference && (
+                    <div className="bg-[#131315] p-2 rounded border border-[#222226]">
+                      <span className="text-[#71717A] block text-[10px]">Material</span>
+                      <span className="text-[#F5F3EF]">{selectedEnquiry.material_preference}</span>
+                    </div>
+                  )}
+                  {selectedEnquiry.dimensions && (
+                    <div className="bg-[#131315] p-2 rounded border border-[#222226]">
+                      <span className="text-[#71717A] block text-[10px]">Dimensions</span>
+                      <span className="text-[#F5F3EF]">{selectedEnquiry.dimensions}</span>
+                    </div>
+                  )}
+                  {selectedEnquiry.target_timeline && (
+                    <div className="bg-[#131315] p-2 rounded border border-[#222226]">
+                      <span className="text-[#71717A] block text-[10px]">Target Date</span>
+                      <span className="text-[#F5F3EF]">{selectedEnquiry.target_timeline}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Reference File / Links */}
+            {(selectedEnquiry.attachment_url || selectedEnquiry.reference_link) && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#8E8E93] font-semibold">
+                  Reference Attachments & Links
+                </h4>
+
+                <div className="bg-[#18181C] border border-[#27272A] p-4 rounded-xl flex flex-wrap items-center gap-4">
+                  {selectedEnquiry.attachment_url && (
+                    <div className="flex items-center gap-3">
+                      {selectedEnquiry.attachment_url.match(/\.(jpeg|jpg|png|webp|gif)$/i) ? (
+                        <a
+                          href={selectedEnquiry.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-16 h-16 rounded-lg overflow-hidden border border-[#3E3E46] shrink-0 block bg-[#101012] hover:opacity-80 transition-opacity"
+                        >
+                          <img
+                            src={selectedEnquiry.attachment_url}
+                            alt="Attachment preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-[#24242A] border border-[#333] flex items-center justify-center text-[#E7A96B]">
+                          <Paperclip className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-xs font-semibold text-[#F5F3EF]">
+                          {selectedEnquiry.attachment_name || 'Attached Customer File'}
+                        </div>
+                        <a
+                          href={selectedEnquiry.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-[#E7A96B] hover:underline mt-0.5"
+                        >
+                          <span>Open / Download File</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedEnquiry.reference_link && (
+                    <a
+                      href={selectedEnquiry.reference_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#222228] hover:bg-[#2C2C34] text-xs text-[#F5F3EF] rounded-lg transition-colors border border-[#333]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-[#E7A96B]" />
+                      <span>View Customer Reference URL</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Update Status Buttons */}
+            <div className="space-y-2">
+              <label className="block text-xs font-mono uppercase tracking-wider text-[#8E8E93] font-semibold">
+                Update Enquiry Status
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'new', label: 'New', color: 'hover:border-amber-500/50' },
+                  { id: 'in_progress', label: 'In Progress', color: 'hover:border-blue-500/50' },
+                  { id: 'completed', label: 'Completed', color: 'hover:border-emerald-500/50' },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateEnquiryStatus(selectedEnquiry.id, st.id as any)}
+                    className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all cursor-pointer text-center ${
+                      selectedEnquiry.status === st.id
+                        ? st.id === 'new'
+                          ? 'bg-amber-950/70 border-amber-500 text-amber-200'
+                          : st.id === 'in_progress'
+                          ? 'bg-blue-950/70 border-blue-500 text-blue-200'
+                          : 'bg-emerald-950/70 border-emerald-500 text-emerald-200'
+                        : `bg-[#18181C] border-[#2A2A2E] text-[#A1A1AA] ${st.color} hover:text-[#FFFFFF]`
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Internal Admin Notes */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-mono uppercase tracking-wider text-[#8E8E93] font-semibold">
+                  Internal Admin Notes
+                </label>
+                <span className="text-[10px] text-[#71717A] font-mono">
+                  Only visible to verified admins
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                placeholder="Log internal details, e.g.: Quoted ₹1,400 on WhatsApp, slicing with 0.12mm layers in Matte Black PLA+, expected completion Friday..."
+                value={enquiryNotesInput}
+                onChange={(e) => setEnquiryNotesInput(e.target.value)}
+                className="w-full bg-[#18181C] border border-[#27272A] rounded-lg p-3 text-xs text-[#F5F3EF] placeholder-[#555] focus:outline-none focus:border-[#E7A96B]"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={isSavingNotes}
+                  onClick={() => handleSaveEnquiryNotes(selectedEnquiry.id)}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#E7A96B] hover:bg-[#F2BA82] text-[#101010] font-bold text-xs rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingNotes ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-[#101010] border-t-transparent rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Internal Notes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Bottom Actions */}
+            <div className="border-t border-[#222226] pt-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  setDeleteConfirmation({
+                    type: 'enquiry',
+                    id: selectedEnquiry.id,
+                    name: `${selectedEnquiry.customer_name}'s enquiry`,
+                    imagePath: selectedEnquiry.attachment_url || undefined,
+                  })
+                }
+                className="text-xs text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Enquiry</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedEnquiry(null)}
+                className="px-4 py-2 bg-[#222228] hover:bg-[#2F2F38] text-xs font-semibold text-[#F5F3EF] rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal for Deletions */}
       {deleteConfirmation && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1337,7 +2064,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div>
               <h3 className="text-base font-bold text-[#F5F3EF]">
-                Confirm Delete {deleteConfirmation.type === 'product' ? 'Product' : 'Category'}
+                Confirm Delete {deleteConfirmation.type === 'product' ? 'Product' : deleteConfirmation.type === 'category' ? 'Category' : 'Enquiry'}
               </h3>
               <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
                 Are you sure you want to permanently delete &ldquo;<strong className="text-[#F5F3EF]">{deleteConfirmation.name}</strong>&rdquo;? This action cannot be undone.

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowDown, Layers, Sparkles, ChevronRight, Eye, Send } from 'lucide-react';
 import { ProductItem } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
+import { formatPriceINR } from '../lib/config';
 
 interface HeroFeatureProps {
   product?: ProductItem | null;
@@ -124,6 +125,14 @@ export const HeroFeature: React.FC<HeroFeatureProps> = ({
                 <span>FEATURED CREATION</span>
                 <span aria-hidden="true" className="text-[#555]">·</span>
                 <span className="text-[#A6A6A6]">{product.categoryName}</span>
+                {product.price !== undefined && product.price !== null && (
+                  <>
+                    <span aria-hidden="true" className="text-[#555]">·</span>
+                    <span className="text-[#E7A96B] font-bold bg-[#E7A96B]/15 px-2 py-0.5 rounded border border-[#E7A96B]/30 font-mono">
+                      {formatPriceINR(product.price)}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Headline */}

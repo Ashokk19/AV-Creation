@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bookmark, Menu, X, ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { Search, Bookmark, ShoppingBag, Menu, X, ArrowUpRight, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   activeView: 'home' | 'collections' | 'custom' | 'about';
   onNavigate: (view: 'home' | 'collections' | 'custom' | 'about') => void;
   favoritesCount: number;
   onOpenFavorites: () => void;
+  cartCount: number;
+  onOpenCart: () => void;
   onOpenSearch: () => void;
   onRequestCustom: () => void;
   isAdmin?: boolean;
@@ -17,6 +19,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   favoritesCount,
   onOpenFavorites,
+  cartCount,
+  onOpenCart,
   onOpenSearch,
   onRequestCustom,
   isAdmin = false,
@@ -134,6 +138,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
+            {/* Shopping Cart Trigger */}
+            <button
+              onClick={onOpenCart}
+              className="relative p-2 text-[#A6A6A6] hover:text-[#F5F3EF] hover:bg-[#1E1E1E] rounded-md transition-colors cursor-pointer"
+              aria-label={`View shopping cart (${cartCount})`}
+              title="Shopping Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-[#101010] text-[10px] font-mono font-bold flex items-center justify-center shadow-xs">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
             {/* Admin Dashboard shortcut for verified admins */}
             {isAdmin && onNavigateToAdmin && (
               <button
@@ -198,23 +217,35 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          <div className="pt-3 border-t border-[#262626] flex items-center justify-between">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenFavorites();
-              }}
-              className="flex items-center gap-2 text-sm text-[#A6A6A6] hover:text-[#F5F3EF]"
-            >
-              <Bookmark className="w-4 h-4" />
-              <span>Saved Creations ({favoritesCount})</span>
-            </button>
+          <div className="pt-3 border-t border-[#262626] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenCart();
+                }}
+                className="flex items-center gap-2 text-sm text-[#A6A6A6] hover:text-[#F5F3EF]"
+              >
+                <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                <span>Cart ({cartCount})</span>
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenFavorites();
+                }}
+                className="flex items-center gap-2 text-sm text-[#A6A6A6] hover:text-[#F5F3EF]"
+              >
+                <Bookmark className="w-4 h-4" />
+                <span>Saved ({favoritesCount})</span>
+              </button>
+            </div>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
                 onRequestCustom();
               }}
-              className="px-3.5 py-1.5 text-xs font-semibold text-[#101010] bg-[#E7A96B] rounded-md"
+              className="w-full py-2.5 text-xs font-semibold text-[#101010] bg-[#E7A96B] rounded-md text-center"
             >
               Custom Order
             </button>

@@ -279,10 +279,41 @@ export async function fetchProducts(options?: {
       return [];
     }
 
-    return (data || []).map((p) => ({
-      ...p,
-      image_url: getProductImageUrl(p.image_path),
-    }));
+    return (data || []).map((p) => {
+      let rawImages: string[] =
+        Array.isArray(p.images) && p.images.length > 0
+          ? p.images.filter(Boolean)
+          : [];
+
+      // Check client-side cached images if column wasn't present in DB
+      if (rawImages.length === 0 && typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`av_product_images_${p.id}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              rawImages = parsed.filter(Boolean);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (rawImages.length === 0 && p.image_path) {
+        rawImages = [p.image_path];
+      }
+
+      const imageUrls = rawImages.map((imgPath: string) => getProductImageUrl(imgPath));
+      const primaryUrl = imageUrls[0] || getProductImageUrl(p.image_path);
+
+      return {
+        ...p,
+        images: rawImages,
+        image_urls: imageUrls,
+        image_url: primaryUrl,
+      };
+    });
   } catch (err) {
     console.error('Failed to fetch products:', err);
     return [];
@@ -290,7 +321,7 @@ export async function fetchProducts(options?: {
 }
 
 /**
- * Upload image to Supabase Storage
+ * Upload single image to Supabase Storage
  */
 export async function uploadProductImage(file: File): Promise<string> {
   const client = getSupabaseClient();
@@ -300,7 +331,8 @@ export async function uploadProductImage(file: File): Promise<string> {
 
   // Validate format
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!validTypes.includes(file.type.toLowerCase())) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!validTypes.includes(file.type.toLowerCase()) && !['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
     throw new Error('Invalid file format. Please upload a JPG, PNG, or WebP image.');
   }
 
@@ -309,9 +341,9 @@ export async function uploadProductImage(file: File): Promise<string> {
     throw new Error('File size exceeds the 8MB limit. Please choose a smaller image.');
   }
 
-  const fileExt = file.name.split('.').pop() || 'webp';
+  const fileExt = ext || 'webp';
   const cleanBase = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const uniquePath = `products/${Date.now()}-${cleanBase}.${fileExt}`;
+  const uniquePath = `products/${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${cleanBase}.${fileExt}`;
 
   const { error: uploadError } = await client.storage
     .from('product-images')
@@ -328,7 +360,29 @@ export async function uploadProductImage(file: File): Promise<string> {
 }
 
 /**
- * Create a new product in Supabase
+ * Upload multiple product images sequentially with progress reporting
+ */
+export async function uploadMultipleProductImages(
+  files: File[],
+  onProgress?: (completed: number, total: number) => void
+): Promise<string[]> {
+  if (!files || files.length === 0) return [];
+
+  const uploadedPaths: string[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = await uploadProductImage(file);
+    uploadedPaths.push(path);
+    if (onProgress) {
+      onProgress(i + 1, files.length);
+    }
+  }
+
+  return uploadedPaths;
+}
+
+/**
+ * Create a new product in Supabase with multi-image support
  */
 export async function createProduct(
   data: {
@@ -340,8 +394,9 @@ export async function createProduct(
     is_featured: boolean;
     status: 'active' | 'draft';
   },
-  imageFile?: File | null,
-  existingImagePath?: string
+  imageFiles?: File[] | File | null,
+  existingImagePaths?: string[] | string,
+  onProgress?: (completed: number, total: number) => void
 ): Promise<ProductRecord> {
   const client = getSupabaseClient();
   if (!client) {
@@ -356,15 +411,36 @@ export async function createProduct(
     throw new Error('Category selection is required.');
   }
 
-  let finalImagePath = existingImagePath || '';
-
-  if (imageFile) {
-    finalImagePath = await uploadProductImage(imageFile);
+  // Normalize existing paths
+  let finalImages: string[] = [];
+  if (existingImagePaths) {
+    if (Array.isArray(existingImagePaths)) {
+      finalImages.push(...existingImagePaths.filter(Boolean));
+    } else if (typeof existingImagePaths === 'string' && existingImagePaths.trim()) {
+      finalImages.push(existingImagePaths.trim());
+    }
   }
 
-  if (!finalImagePath) {
-    throw new Error('A product image is required.');
+  // Normalize files
+  const filesToUpload: File[] = [];
+  if (imageFiles) {
+    if (Array.isArray(imageFiles)) {
+      filesToUpload.push(...imageFiles);
+    } else {
+      filesToUpload.push(imageFiles);
+    }
   }
+
+  if (filesToUpload.length > 0) {
+    const newlyUploaded = await uploadMultipleProductImages(filesToUpload, onProgress);
+    finalImages.push(...newlyUploaded);
+  }
+
+  if (finalImages.length === 0) {
+    throw new Error('At least one product image is required.');
+  }
+
+  const primaryImagePath = finalImages[0];
 
   // Generate unique slug
   let baseSlug = slugify(data.name);
@@ -392,36 +468,68 @@ export async function createProduct(
       ? Number(data.price)
       : null;
 
-  const { data: created, error } = await client
+  const insertPayload: Record<string, any> = {
+    name: data.name.trim(),
+    slug: finalSlug,
+    short_description: data.short_description?.trim() || null,
+    description: data.description?.trim() || null,
+    image_path: primaryImagePath,
+    images: finalImages,
+    category_id: data.category_id,
+    price: cleanPrice,
+    is_featured: Boolean(data.is_featured),
+    status: data.status || 'active',
+  };
+
+  let created: any = null;
+  const { data: insertResult, error } = await client
     .from('products')
-    .insert([
-      {
-        name: data.name.trim(),
-        slug: finalSlug,
-        short_description: data.short_description?.trim() || null,
-        description: data.description?.trim() || null,
-        image_path: finalImagePath,
-        category_id: data.category_id,
-        price: cleanPrice,
-        is_featured: Boolean(data.is_featured),
-        status: data.status || 'active',
-      },
-    ])
+    .insert([insertPayload])
     .select('*, category:categories(id, name, slug)')
     .single();
 
   if (error) {
-    throw new Error(error.message || 'Failed to create product.');
+    // If column doesn't exist yet in the database schema cache (PGRST204), fallback safely without `images`
+    if (error.code === 'PGRST204' || error.message.includes('images')) {
+      const fallbackPayload = { ...insertPayload };
+      delete fallbackPayload.images;
+      const retry = await client
+        .from('products')
+        .insert([fallbackPayload])
+        .select('*, category:categories(id, name, slug)')
+        .single();
+      if (retry.error) {
+        throw new Error(retry.error.message || 'Failed to create product.');
+      }
+      created = retry.data;
+    } else {
+      throw new Error(error.message || 'Failed to create product.');
+    }
+  } else {
+    created = insertResult;
   }
+
+  // Persist images cache locally for immediate responsiveness
+  if (created?.id && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`av_product_images_${created.id}`, JSON.stringify(finalImages));
+    } catch {
+      // ignore
+    }
+  }
+
+  const resolvedUrls = finalImages.map((p) => getProductImageUrl(p));
 
   return {
     ...created,
-    image_url: getProductImageUrl(created.image_path),
+    images: finalImages,
+    image_urls: resolvedUrls,
+    image_url: resolvedUrls[0] || getProductImageUrl(created.image_path),
   };
 }
 
 /**
- * Update an existing product
+ * Update an existing product with multi-image support
  */
 export async function updateProduct(
   id: string,
@@ -434,7 +542,9 @@ export async function updateProduct(
     is_featured: boolean;
     status: 'active' | 'draft';
   },
-  newImageFile?: File | null
+  newImageFiles?: File[] | File | null,
+  orderedImagePaths?: string[],
+  onProgress?: (completed: number, total: number) => void
 ): Promise<ProductRecord> {
   const client = getSupabaseClient();
   if (!client) {
@@ -444,6 +554,49 @@ export async function updateProduct(
   if (!data.name.trim()) {
     throw new Error('Product name is required.');
   }
+
+  // Fetch current product to check previously saved images for safe cleanup
+  let previousImages: string[] = [];
+  try {
+    const { data: currentProd } = await client
+      .from('products')
+      .select('image_path, images')
+      .eq('id', id)
+      .single();
+    if (currentProd) {
+      if (Array.isArray(currentProd.images) && currentProd.images.length > 0) {
+        previousImages = currentProd.images;
+      } else if (currentProd.image_path) {
+        previousImages = [currentProd.image_path];
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // Base list from ordered existing paths
+  let finalImages: string[] = orderedImagePaths ? [...orderedImagePaths.filter(Boolean)] : [...previousImages];
+
+  // Upload any new files
+  const filesToUpload: File[] = [];
+  if (newImageFiles) {
+    if (Array.isArray(newImageFiles)) {
+      filesToUpload.push(...newImageFiles);
+    } else {
+      filesToUpload.push(newImageFiles);
+    }
+  }
+
+  if (filesToUpload.length > 0) {
+    const uploadedPaths = await uploadMultipleProductImages(filesToUpload, onProgress);
+    finalImages.push(...uploadedPaths);
+  }
+
+  if (finalImages.length === 0) {
+    throw new Error('At least one product image is required.');
+  }
+
+  const primaryImagePath = finalImages[0];
 
   const cleanPrice =
     data.price !== undefined && data.price !== null && !isNaN(Number(data.price)) && Number(data.price) >= 0
@@ -455,17 +608,15 @@ export async function updateProduct(
     short_description: data.short_description?.trim() || null,
     description: data.description?.trim() || null,
     category_id: data.category_id,
+    image_path: primaryImagePath,
+    images: finalImages,
     price: cleanPrice,
     is_featured: Boolean(data.is_featured),
     status: data.status || 'active',
   };
 
-  if (newImageFile) {
-    const newPath = await uploadProductImage(newImageFile);
-    updatePayload.image_path = newPath;
-  }
-
-  const { data: updated, error } = await client
+  let updated: any = null;
+  const { data: updateResult, error } = await client
     .from('products')
     .update(updatePayload)
     .eq('id', id)
@@ -473,19 +624,62 @@ export async function updateProduct(
     .single();
 
   if (error) {
-    throw new Error(error.message || 'Failed to update product.');
+    if (error.code === 'PGRST204' || error.message.includes('images')) {
+      const fallbackPayload = { ...updatePayload };
+      delete fallbackPayload.images;
+      const retry = await client
+        .from('products')
+        .update(fallbackPayload)
+        .eq('id', id)
+        .select('*, category:categories(id, name, slug)')
+        .single();
+      if (retry.error) {
+        throw new Error(retry.error.message || 'Failed to update product.');
+      }
+      updated = retry.data;
+    } else {
+      throw new Error(error.message || 'Failed to update product.');
+    }
+  } else {
+    updated = updateResult;
   }
+
+  // Persist images cache locally for immediate responsiveness
+  if (id && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`av_product_images_${id}`, JSON.stringify(finalImages));
+    } catch {
+      // ignore
+    }
+  }
+
+  // Safe cleanup: delete removed images that were previously saved but are no longer in finalImages
+  const currentSet = new Set(finalImages);
+  const orphaned = previousImages.filter(
+    (oldPath) => !currentSet.has(oldPath) && !oldPath.startsWith('http') && !oldPath.startsWith('/')
+  );
+  if (orphaned.length > 0) {
+    try {
+      await client.storage.from('product-images').remove(orphaned);
+    } catch {
+      // safe ignore best-effort cleanup
+    }
+  }
+
+  const resolvedUrls = finalImages.map((p) => getProductImageUrl(p));
 
   return {
     ...updated,
-    image_url: getProductImageUrl(updated.image_path),
+    images: finalImages,
+    image_urls: resolvedUrls,
+    image_url: resolvedUrls[0] || getProductImageUrl(updated.image_path),
   };
 }
 
 /**
- * Delete product from Supabase
+ * Delete product from Supabase and cleanup all storage photos
  */
-export async function deleteProduct(id: string, imagePath?: string): Promise<void> {
+export async function deleteProduct(id: string, imagePaths?: string | string[]): Promise<void> {
   const client = getSupabaseClient();
   if (!client) {
     throw new Error('Supabase is not configured.');
@@ -500,10 +694,31 @@ export async function deleteProduct(id: string, imagePath?: string): Promise<voi
     throw new Error(error.message || 'Failed to delete product.');
   }
 
-  // Best effort image cleanup
-  if (imagePath && !imagePath.startsWith('http') && !imagePath.startsWith('/')) {
+  if (id && typeof window !== 'undefined') {
     try {
-      await client.storage.from('product-images').remove([imagePath]);
+      localStorage.removeItem(`av_product_images_${id}`);
+    } catch {
+      // ignore
+    }
+  }
+
+  // Best effort image cleanup
+  const pathsToClean: string[] = [];
+  if (imagePaths) {
+    if (Array.isArray(imagePaths)) {
+      pathsToClean.push(...imagePaths);
+    } else {
+      pathsToClean.push(imagePaths);
+    }
+  }
+
+  const validBucketPaths = pathsToClean.filter(
+    (p) => p && !p.startsWith('http') && !p.startsWith('/')
+  );
+
+  if (validBucketPaths.length > 0) {
+    try {
+      await client.storage.from('product-images').remove(validBucketPaths);
     } catch {
       // ignore
     }
@@ -518,7 +733,20 @@ export async function deleteProduct(id: string, imagePath?: string): Promise<voi
 export function mapProductRecordToItem(record: ProductRecord): ProductItem {
   const categoryName = record.category?.name || 'Creation';
   const categorySlug = record.category?.slug || 'creation';
-  const imageUrl = record.image_url || getProductImageUrl(record.image_path);
+
+  const rawImages: string[] =
+    Array.isArray(record.images) && record.images.length > 0
+      ? record.images.filter(Boolean)
+      : record.image_path
+      ? [record.image_path]
+      : [];
+
+  const imageUrls: string[] =
+    Array.isArray(record.image_urls) && record.image_urls.length > 0
+      ? record.image_urls
+      : rawImages.map((img) => getProductImageUrl(img));
+
+  const primaryImageUrl = imageUrls[0] || record.image_url || getProductImageUrl(record.image_path);
 
   return {
     id: record.id,
@@ -538,7 +766,9 @@ export function mapProductRecordToItem(record: ProductRecord): ProductItem {
     creationDate: record.created_at || new Date().toISOString(),
     status: record.status,
     image_path: record.image_path,
-    imageUrl: imageUrl,
+    imageUrl: primaryImageUrl,
+    images: rawImages,
+    imageUrls: imageUrls,
     primaryVisual: {
       accentGlow: '#E7A96B',
       style: 'dynamic-photo',

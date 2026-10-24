@@ -1,11 +1,28 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Retrieve config from Vite environment variables or localStorage override
-export function getSupabaseConfig(): { url: string; anonKey: string } {
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+function sanitizeSupabaseUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  const trimmed = rawUrl.trim();
+  // Handle accidental double pasting like https://xyz.supabase.cohttps://xyz.supabase.co
+  const match = trimmed.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i);
+  if (match) {
+    return match[0];
+  }
+  return trimmed;
+}
 
-  const localUrl = (typeof window !== 'undefined' ? localStorage.getItem('av_supabase_url') || '' : '').trim();
+// Retrieve config from Vite environment variables, Node env, or localStorage override
+export function getSupabaseConfig(): { url: string; anonKey: string } {
+  const metaEnv = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : undefined;
+  const procEnv = typeof process !== 'undefined' && process.env ? process.env : undefined;
+
+  const rawEnvUrl = (metaEnv?.VITE_SUPABASE_URL || procEnv?.VITE_SUPABASE_URL || '').trim();
+  const rawEnvKey = (metaEnv?.VITE_SUPABASE_ANON_KEY || procEnv?.VITE_SUPABASE_ANON_KEY || '').trim();
+
+  const envUrl = sanitizeSupabaseUrl(rawEnvUrl);
+  const envKey = rawEnvKey;
+
+  const localUrl = sanitizeSupabaseUrl(typeof window !== 'undefined' ? localStorage.getItem('av_supabase_url') || '' : '');
   const localKey = (typeof window !== 'undefined' ? localStorage.getItem('av_supabase_anon_key') || '' : '').trim();
 
   return {
@@ -107,6 +124,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     short_description TEXT,
     description TEXT,
     image_path TEXT NOT NULL,
+    images TEXT[] DEFAULT '{}',
     category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
     price NUMERIC(10, 2) CHECK (price >= 0),
     is_featured BOOLEAN DEFAULT false NOT NULL,
@@ -115,7 +133,9 @@ CREATE TABLE IF NOT EXISTS public.products (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Idempotent column check for existing databases
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2) CHECK (price >= 0);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products (category_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON public.products (status);

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     short_description TEXT,
     description TEXT,
     image_path TEXT NOT NULL,
+    images TEXT[] DEFAULT '{}',
     category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
     price NUMERIC(10, 2) CHECK (price >= 0),
     is_featured BOOLEAN DEFAULT false NOT NULL,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 -- Idempotent column check for existing databases
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2) CHECK (price >= 0);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products (category_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON public.products (status);

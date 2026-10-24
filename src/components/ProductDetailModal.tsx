@@ -1,8 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { X, Bookmark, Layers, Sparkles, Send, Ruler, Clock, Weight, Cpu, ChevronRight, ShoppingBag, Plus, Minus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  X,
+  Bookmark,
+  Layers,
+  Sparkles,
+  Send,
+  Ruler,
+  Clock,
+  Weight,
+  Cpu,
+  ChevronLeft,
+  ChevronRight,
+  ShoppingBag,
+  Plus,
+  Minus,
+  Images,
+} from 'lucide-react';
 import { ProductItem, ColorVariant } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
 import { formatPriceINR } from '../lib/config';
+import {
+  getProductImages,
+  calculateNextGalleryIndex,
+  detectSwipeDirection,
+} from '../utils/galleryLogic';
 
 interface ProductDetailModalProps {
   product: ProductItem | null;
@@ -30,28 +51,114 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
   const [activeAngle, setActiveAngle] = useState<'primary' | 'detail' | 'sliced'>('primary');
   const [quantity, setQuantity] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Touch swipe tracking state
+  const touchStartXRef = useRef<number | null>(null);
+  const thumbnailRowRef = useRef<HTMLDivElement>(null);
+
+  // Extract all product photos in order
+  const galleryImages = getProductImages(product);
+  const hasMultipleImages = galleryImages.length > 1;
 
   // Reset state when product changes
   useEffect(() => {
     setSelectedColorIndex(0);
     setActiveAngle('primary');
     setQuantity(1);
+    setActiveImageIndex(0);
   }, [product?.id]);
 
-  // Handle ESC key to close modal
+  // Scroll active thumbnail into view smoothly
+  useEffect(() => {
+    if (thumbnailRowRef.current && hasMultipleImages) {
+      const activeThumb = thumbnailRowRef.current.children[activeImageIndex] as HTMLElement;
+      if (activeThumb) {
+        activeThumb.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [activeImageIndex, hasMultipleImages]);
+
+  // Gallery Navigation Handlers
+  const handleNextImage = () => {
+    if (!hasMultipleImages) return;
+    setActiveImageIndex((prev) => calculateNextGalleryIndex(prev, galleryImages.length, 'next'));
+  };
+
+  const handlePrevImage = () => {
+    if (!hasMultipleImages) return;
+    setActiveImageIndex((prev) => calculateNextGalleryIndex(prev, galleryImages.length, 'prev'));
+  };
+
+  // Mobile Touch Swipe Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!hasMultipleImages) return;
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!hasMultipleImages || touchStartXRef.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const direction = detectSwipeDirection(touchStartXRef.current, touchEndX, 40);
+    if (direction === 'left') {
+      handleNextImage();
+    } else if (direction === 'right') {
+      handlePrevImage();
+    }
+    touchStartXRef.current = null;
+  };
+
+  // Handle ESC and Arrow keys for gallery navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
         onClose();
+      } else if (e.key === 'ArrowRight' && hasMultipleImages) {
+        handleNextImage();
+      } else if (e.key === 'ArrowLeft' && hasMultipleImages) {
+        handlePrevImage();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, hasMultipleImages, galleryImages.length]);
 
   if (!isOpen || !product) return null;
 
   const activeColor = product.availableColors[selectedColorIndex] || product.availableColors[0];
+  const currentImageUrl = galleryImages[activeImageIndex] || galleryImages[0] || '';
+
+  const specsLayer =
+    typeof product.specs === 'object' && product.specs?.layerResolution
+      ? product.specs.layerResolution
+      : typeof (product as any).specs === 'string'
+      ? (product as any).specs
+      : '0.12–0.16 mm';
+
+  const specsPrintTime =
+    typeof product.specs === 'object' && product.specs?.printTimeHours !== undefined
+      ? product.specs.printTimeHours
+      : 12;
+
+  const specsWeight =
+    typeof product.specs === 'object' && product.specs?.weightGrams !== undefined
+      ? product.specs.weightGrams
+      : 180;
+
+  const specsNozzle =
+    typeof product.specs === 'object' && product.specs?.nozzleDiameter
+      ? product.specs.nozzleDiameter
+      : '0.4 mm Hardened Brass';
+
+  const specsDimensions =
+    typeof product.specs === 'object' && product.specs?.dimensions
+      ? `${product.specs.dimensions.widthMm ?? 120} × ${product.specs.dimensions.depthMm ?? 120} × ${product.specs.dimensions.heightMm ?? 140} mm`
+      : '120 × 120 × 140 mm';
 
   return (
     <div
@@ -70,7 +177,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="flex items-center gap-2 text-xs font-mono text-[#A1A1AA]">
             <span>{product.categoryName}</span>
             <span aria-hidden="true">·</span>
-            <span className="text-[#E7A96B]">{product.specs.layerResolution}</span>
+            <span className="text-[#E7A96B]">{specsLayer}</span>
+            {hasMultipleImages && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 text-[#F5F3EF]">
+                  <Images className="w-3 h-3 text-[#E7A96B]" />
+                  <span>{galleryImages.length} photos</span>
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -103,13 +219,57 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Visual Canvas Column (7 Cols on desktop) */}
             <div className="lg:col-span-7 space-y-4">
-              <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-[#27272A] bg-[#0E0E10] shadow-inner">
+              {/* Main Large Visual Viewport with Swipe & Arrow Controls */}
+              <div
+                className="group relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-[#27272A] bg-[#0E0E10] shadow-inner select-none touch-pan-y"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
                 <PrintArtwork
                   product={product}
                   activeColor={activeColor}
                   angle={activeAngle}
+                  overrideImageUrl={currentImageUrl}
                   className="w-full h-full"
                 />
+
+                {/* Left & Right Gallery Navigation Arrows (Desktop / Tablet) */}
+                {hasMultipleImages && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrevImage();
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#101012]/80 hover:bg-[#101012] text-[#F5F3EF] hover:text-[#E7A96B] border border-[#2D2D32] hover:border-[#E7A96B]/50 flex items-center justify-center backdrop-blur-md transition-all shadow-lg active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+                      aria-label="Previous photo"
+                      title="Previous photo (Left Arrow)"
+                    >
+                      <ChevronLeft className="w-5 h-5 -ml-0.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNextImage();
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#101012]/80 hover:bg-[#101012] text-[#F5F3EF] hover:text-[#E7A96B] border border-[#2D2D32] hover:border-[#E7A96B]/50 flex items-center justify-center backdrop-blur-md transition-all shadow-lg active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+                      aria-label="Next photo"
+                      title="Next photo (Right Arrow)"
+                    >
+                      <ChevronRight className="w-5 h-5 -mr-0.5" />
+                    </button>
+
+                    {/* Gallery Photo Counter Badge */}
+                    <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded bg-[#101012]/80 border border-[#2D2D32] backdrop-blur-md text-[11px] font-mono text-[#F5F3EF] flex items-center gap-1.5 shadow-md">
+                      <span className="text-[#E7A96B] font-bold">{activeImageIndex + 1}</span>
+                      <span className="text-[#71717A]">/</span>
+                      <span className="text-[#A1A1AA]">{galleryImages.length}</span>
+                    </div>
+                  </>
+                )}
 
                 {/* Perspective & Slicing Control Strip */}
                 <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-[#141416]/90 border border-[#2A2A2E] p-1 rounded-md backdrop-blur-md">
@@ -140,6 +300,59 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Scrollable Gallery Thumbnail Strip (Rendered only when multiple images exist) */}
+              {hasMultipleImages && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-[#71717A] px-1">
+                    <span>PRODUCT GALLERY ({galleryImages.length} PHOTOS)</span>
+                    <span className="text-[#E7A96B]">Swipe or click thumbnail</span>
+                  </div>
+
+                  <div
+                    ref={thumbnailRowRef}
+                    className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 scroll-smooth no-scrollbar"
+                    style={{ scrollbarWidth: 'thin' }}
+                  >
+                    {galleryImages.map((imgUrl, idx) => {
+                      const isSelected = activeImageIndex === idx;
+                      return (
+                        <button
+                          key={`${imgUrl}-${idx}`}
+                          type="button"
+                          onClick={() => setActiveImageIndex(idx)}
+                          className={`relative shrink-0 w-20 h-16 sm:w-24 sm:h-20 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-[#0E0E10] ${
+                            isSelected
+                              ? 'border-[#E7A96B] ring-2 ring-[#E7A96B]/30 scale-[1.02] shadow-lg shadow-[#E7A96B]/10 opacity-100'
+                              : 'border-[#27272A] opacity-60 hover:opacity-100 hover:border-[#3F3F46]'
+                          }`}
+                          aria-label={`View photo ${idx + 1}`}
+                          aria-current={isSelected ? 'true' : 'false'}
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`${product.title} photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+
+                          {/* Primary marker on first thumbnail */}
+                          {idx === 0 && (
+                            <span className="absolute top-1 left-1 bg-[#101012]/85 text-[#E7A96B] text-[9px] font-mono px-1 py-0.2 rounded border border-[#E7A96B]/30 font-semibold">
+                              Cover
+                            </span>
+                          )}
+
+                          {/* Current selected check dot */}
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-[#E7A96B]/10 pointer-events-none" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Material & Color Swatch Visualizer */}
               <div className="bg-[#18181A] border border-[#27272A] p-4 rounded-lg">
@@ -213,24 +426,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="grid grid-cols-2 gap-3 text-xs font-mono">
                   <div className="flex items-center gap-2 text-[#A1A1AA]">
                     <Clock className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Print Time: <strong className="text-[#F5F3EF]">{product.specs.printTimeHours} hrs</strong></span>
+                    <span>Print Time: <strong className="text-[#F5F3EF]">{specsPrintTime} hrs</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#A1A1AA]">
                     <Layers className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Layer: <strong className="text-[#F5F3EF]">{product.specs.layerResolution}</strong></span>
+                    <span>Layer: <strong className="text-[#F5F3EF]">{specsLayer}</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#A1A1AA]">
                     <Weight className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Weight: <strong className="text-[#F5F3EF]">{product.specs.weightGrams}g</strong></span>
+                    <span>Weight: <strong className="text-[#F5F3EF]">{specsWeight}g</strong></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#A1A1AA]">
                     <Cpu className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Nozzle: <strong className="text-[#F5F3EF]">{product.specs.nozzleDiameter}</strong></span>
+                    <span>Nozzle: <strong className="text-[#F5F3EF]">{specsNozzle}</strong></span>
                   </div>
                   <div className="col-span-2 flex items-center gap-2 text-[#A1A1AA] pt-1 border-t border-[#222226]">
                     <Ruler className="w-3.5 h-3.5 text-[#E7A96B]" />
                     <span>
-                      Dimensions: <strong className="text-[#F5F3EF]">{product.specs.dimensions.widthMm} × {product.specs.dimensions.depthMm} × {product.specs.dimensions.heightMm} mm</strong>
+                      Dimensions: <strong className="text-[#F5F3EF]">{specsDimensions}</strong>
                     </span>
                   </div>
                 </div>

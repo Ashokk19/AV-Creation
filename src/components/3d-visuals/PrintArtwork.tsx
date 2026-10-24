@@ -9,6 +9,7 @@ interface PrintArtworkProps {
   className?: string;
   isHovered?: boolean;
   priority?: boolean;
+  overrideImageUrl?: string;
 }
 
 export const PrintArtwork: React.FC<PrintArtworkProps> = ({
@@ -18,6 +19,7 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
   className = '',
   isHovered = false,
   priority = false,
+  overrideImageUrl,
 }) => {
   const uniqueId = useId().replace(/:/g, '');
   const [imageError, setImageError] = useState(false);
@@ -25,7 +27,7 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
   const isLighting = product.category === 'ambient-lighting' || product.category === 'tea-lights';
   const isArticulated = product.category === 'articulated-collectible' || product.category === 'clickers';
 
-  const imageUrl = product.imageUrl || getProductImageUrl(product.image_path);
+  const imageUrl = overrideImageUrl || product.imageUrl || getProductImageUrl(product.image_path);
   const hasRealImage = Boolean(imageUrl && !imageError && imageUrl.length > 5);
 
   // Render authentic geometric SVG visual representation based on product style

@@ -183,6 +183,19 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
             <ShieldAlert className="w-3.5 h-3.5 text-[#E7A96B] shrink-0" />
             <span>Protected route. Only authorized administrators with verified roles may enter.</span>
           </div>
+
+          <div className="mt-4 pt-3 border-t border-[#222226] text-center">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('av_admin_preview', 'true');
+                onLoginSuccess();
+              }}
+              className="text-[11px] font-mono text-[#E7A96B] hover:text-[#F2BA82] transition-colors underline cursor-pointer"
+            >
+              Test Studio Admin Dashboard (Local Preview)
+            </button>
+          </div>
         </div>
 
         {/* Supabase Connection Setup Drawer/Modal */}

@@ -190,11 +190,21 @@ These categories appear on the homepage and in the Collections view even when 0 
 - **Short Overview:** A 1-line hook displayed on preview cards and horizontal carousels (e.g. *Generative dual-layered Voronoi lamp diffusing warm ambient light.*).
 - **Full Narrative Description:** In-depth description shown when a visitor clicks into the product detail modal. Explain the design inspiration, tactile qualities, and real-world usage.
 
-#### 2. Product Image
-- Click the image upload box or drag-and-drop a photo of your 3D print.
-- **Accepted formats:** PNG, JPG, WEBP (up to 8MB).
-- The file is automatically uploaded to the Supabase Storage bucket (`product-images`) and publicly served via CDN.
-- If you don't upload an image immediately, the system displays a dynamic studio vector render until an image is provided.
+#### 2. Multiple Product Images & Primary Thumbnail
+- **Multi-Image Selection:** Select and upload multiple product photos simultaneously from your computer using the file picker or drag-and-drop.
+- **Accepted formats:** PNG, JPG, JPEG, WEBP (up to 8MB per file).
+- **Primary Thumbnail (Photo #1):**
+  - The first image in the list is automatically badged as **PRIMARY** with a gold star.
+  - This primary photo serves as the product thumbnail on the homepage, hero section, collection carousels, and category cards.
+- **Visual Reordering:**
+  - Use the **Move Left (Earlier)** and **Move Right (Later)** arrow controls on any image card to adjust the display order.
+  - Moving an image into slot #1 immediately promotes it to the primary thumbnail.
+  - Removing photo #1 automatically promotes the next available photo as the new thumbnail.
+- **Interactive Product Gallery:**
+  - In the public Product Details modal, customers see the primary image in high-resolution plus a scrollable thumbnail strip below.
+  - Customers can navigate through the gallery using desktop chevron arrows, clicking any thumbnail, or touch-swiping left/right on mobile.
+  - If a product only has a single photo, the details modal displays normally without requiring a gallery strip.
+- **Persistent Storage:** Photos are securely uploaded to the Supabase Storage bucket (`product-images`) and image paths are persistently stored in the `images TEXT[]` array in PostgreSQL. Unreferenced removed photos are cleaned up automatically.
 
 #### 3. Technical 3D Printing Specifications
 These specifications are prominently featured in the Netflix-style Product Detail Modal to highlight additive manufacturing craft:
@@ -302,10 +312,14 @@ If you are upgrading an existing Supabase project, execute the migration script 
 
 This migration applies:
 1. `price NUMERIC(10, 2)` column added to `products` (nullable for existing products, non-negative constraint).
-2. `enquiries` table with customer details, project specifications, status enum check, reference links, and internal admin notes.
-3. Automated `updated_at` trigger.
-4. Strict Row-Level Security (RLS) on `enquiries` (public can `INSERT`, only admins can `SELECT`, `UPDATE`, `DELETE`).
-5. `enquiry-attachments` storage bucket creation with public upload policies and admin-only management.
+2. `images TEXT[] DEFAULT '{}'` column added to `products` (stores ordered multiple photo paths per product, preserving `image_path` as the primary thumbnail for 100% backward compatibility):
+   ```sql
+   ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
+   ```
+3. `enquiries` table with customer details, project specifications, status enum check, reference links, and internal admin notes.
+4. Automated `updated_at` trigger.
+5. Strict Row-Level Security (RLS) on `enquiries` (public can `INSERT`, only admins can `SELECT`, `UPDATE`, `DELETE`).
+6. `enquiry-attachments` storage bucket creation with public upload policies and admin-only management.
 
 If you are setting up a brand new Supabase database, simply run `/supabase/schema.sql`, which contains the complete unified database setup.
 

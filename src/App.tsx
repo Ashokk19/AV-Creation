@@ -235,7 +235,19 @@ export default function App() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    const handleSelectEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<ProductItem>;
+      if (customEvent.detail) {
+        setSelectedProduct(customEvent.detail);
+      }
+    };
+    window.addEventListener('av-select-product', handleSelectEvent);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('av-select-product', handleSelectEvent);
+    };
   }, [isSearchOpen]);
 
   // Toggle favorite

@@ -14,6 +14,8 @@ export interface ProductRecord {
   description?: string | null;
   image_path: string;
   image_url?: string;
+  images?: string[];
+  image_urls?: string[];
   category_id: string;
   price?: number | null;
   is_featured: boolean;
@@ -93,6 +95,8 @@ export interface ProductItem {
   status: 'active' | 'draft';
   image_path: string;
   imageUrl?: string;
+  images?: string[];
+  imageUrls?: string[];
   primaryVisual: {
     accentGlow: string;
     style: string;

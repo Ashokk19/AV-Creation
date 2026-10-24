@@ -28,6 +28,10 @@ import {
   Check,
   Send,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Images,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { CategoryRecord, ProductRecord, CustomerEnquiry } from '../../types';
 import {
@@ -39,6 +43,7 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  uploadProductImage,
 } from '../../services/productService';
 import {
   fetchEnquiries,
@@ -49,6 +54,11 @@ import {
 import { signOutAdmin } from '../../services/authService';
 import { SUPABASE_SQL_SCHEMA, isSupabaseConfigured, getProductImageUrl } from '../../lib/supabase';
 import { formatPriceINR } from '../../lib/config';
+import {
+  validateImageFiles,
+  reorderImages,
+  removeImageAtIndex,
+} from '../../utils/galleryLogic';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -79,9 +89,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prodDesc, setProdDesc] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodStatus, setProdStatus] = useState<'active' | 'draft'>('active');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [existingImagePath, setExistingImagePath] = useState<string>('');
+  // Multi-image state for product form
+  const [productImages, setProductImages] = useState<Array<{
+    id: string;
+    type: 'existing' | 'new';
+    previewUrl: string;
+    file?: File;
+    path?: string;
+    name: string;
+    size?: number;
+  }>>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
   // Add / Edit Category Form state
@@ -96,6 +115,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     id: string;
     name: string;
     imagePath?: string;
+    imagePaths?: string[];
   } | null>(null);
 
   // Customer Enquiries Management state
@@ -146,25 +166,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 4500);
   };
 
-  // Image File Selection & Preview
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Add files to product images state with format and size validation
+  const handleAddFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
 
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type.toLowerCase())) {
-      showNotification('error', 'Please choose a valid JPG, PNG, or WebP image file.');
+    const validation = validateImageFiles(fileArray);
+    if (!validation.valid) {
+      showNotification('error', validation.error || 'Invalid image file.');
       return;
     }
 
-    if (file.size > 8 * 1024 * 1024) {
-      showNotification('error', 'File size exceeds 8MB. Please choose a smaller image.');
-      return;
-    }
+    const newItems = fileArray.map((file) => ({
+      id: `new-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      type: 'new' as const,
+      previewUrl: URL.createObjectURL(file),
+      file,
+      name: file.name,
+      size: file.size,
+    }));
 
-    setImageFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setImagePreviewUrl(objectUrl);
+    setProductImages((prev) => [...prev, ...newItems]);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleAddFiles(e.target.files);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveProductImage = (index: number) => {
+    setProductImages((prev) => removeImageAtIndex(prev, index));
+  };
+
+  const handleMoveProductImage = (fromIndex: number, toIndex: number) => {
+    setProductImages((prev) => reorderImages(prev, fromIndex, toIndex));
   };
 
   // Open Edit Product Modal / Form
@@ -177,9 +214,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdDesc(product.description || '');
     setProdFeatured(product.is_featured);
     setProdStatus(product.status);
-    setExistingImagePath(product.image_path);
-    setImagePreviewUrl(product.image_url || getProductImageUrl(product.image_path));
-    setImageFile(null);
+
+    const rawImages: string[] =
+      Array.isArray(product.images) && product.images.length > 0
+        ? product.images.filter(Boolean)
+        : product.image_path
+        ? [product.image_path]
+        : [];
+
+    const existingItems = rawImages.map((path, idx) => ({
+      id: `existing-${idx}-${path}`,
+      type: 'existing' as const,
+      path,
+      previewUrl: getProductImageUrl(path),
+      name: path.split('/').pop() || `Photo ${idx + 1}`,
+    }));
+
+    setProductImages(existingItems);
+    setUploadProgress(null);
     setActiveTab('add-product');
   };
 
@@ -191,15 +243,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setProdDesc('');
     setProdFeatured(false);
     setProdStatus('active');
-    setImageFile(null);
-    setImagePreviewUrl(null);
-    setExistingImagePath('');
+    setProductImages([]);
+    setUploadProgress(null);
     if (categories.length > 0) {
       setProdCategory(categories[0].id);
     }
   };
 
-  // Handle Save Product (Create or Edit)
+  // Handle Save Product (Create or Edit) with persistent image ordering
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prodName.trim()) {
@@ -212,8 +263,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    if (!editingProductId && !imageFile) {
-      showNotification('error', 'A product image upload is required.');
+    if (productImages.length === 0) {
+      showNotification('error', 'Please upload at least one product photo.');
       return;
     }
 
@@ -228,7 +279,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     setIsSubmittingProduct(true);
+    setUploadProgress(null);
     try {
+      // 1. Upload any newly added files first, reporting progress
+      const newItems = productImages.filter((p) => p.type === 'new' && p.file);
+      const uploadedMap = new Map<string, string>();
+
+      if (newItems.length > 0) {
+        for (let i = 0; i < newItems.length; i++) {
+          const item = newItems[i];
+          setUploadProgress({ current: i + 1, total: newItems.length });
+          const storagePath = await uploadProductImage(item.file!);
+          uploadedMap.set(item.id, storagePath);
+        }
+      }
+
+      // 2. Assemble final ordered paths in the EXACT order shown in the dashboard UI
+      const finalOrderedPaths: string[] = productImages
+        .map((item) => (item.type === 'new' ? uploadedMap.get(item.id) : item.path))
+        .filter((p): p is string => Boolean(p));
+
+      if (finalOrderedPaths.length === 0) {
+        throw new Error('No valid images could be saved.');
+      }
+
       if (editingProductId) {
         await updateProduct(
           editingProductId,
@@ -241,9 +315,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             is_featured: prodFeatured,
             status: prodStatus,
           },
-          imageFile
+          null,
+          finalOrderedPaths
         );
-        showNotification('success', `Product "${prodName}" updated successfully.`);
+        showNotification('success', `Product "${prodName}" updated with ${finalOrderedPaths.length} photo${finalOrderedPaths.length > 1 ? 's' : ''}.`);
       } else {
         await createProduct(
           {
@@ -255,9 +330,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             is_featured: prodFeatured,
             status: prodStatus,
           },
-          imageFile
+          null,
+          finalOrderedPaths
         );
-        showNotification('success', `Product "${prodName}" created and added to catalogue.`);
+        showNotification('success', `Product "${prodName}" created with ${finalOrderedPaths.length} photo${finalOrderedPaths.length > 1 ? 's' : ''}.`);
       }
 
       resetProductForm();
@@ -267,6 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotification('error', err.message || 'Failed to save product.');
     } finally {
       setIsSubmittingProduct(false);
+      setUploadProgress(null);
     }
   };
 
@@ -306,7 +383,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     try {
       if (deleteConfirmation.type === 'product') {
-        await deleteProduct(deleteConfirmation.id, deleteConfirmation.imagePath);
+        await deleteProduct(deleteConfirmation.id, deleteConfirmation.imagePaths || deleteConfirmation.imagePath);
         showNotification('success', `Product "${deleteConfirmation.name}" deleted.`);
       } else if (deleteConfirmation.type === 'category') {
         await deleteCategory(deleteConfirmation.id);
@@ -745,6 +822,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       id: prod.id,
                                       name: prod.name,
                                       imagePath: prod.image_path,
+                                      imagePaths: prod.images && prod.images.length > 0 ? prod.images : [prod.image_path],
                                     })
                                   }
                                   className="p-1.5 text-[#71717A] hover:text-red-400 hover:bg-red-950/30 rounded transition-colors"
@@ -914,6 +992,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     id: prod.id,
                                     name: prod.name,
                                     imagePath: prod.image_path,
+                                    imagePaths: prod.images && prod.images.length > 0 ? prod.images : [prod.image_path],
                                   })
                                 }
                                 className="p-1.5 text-[#71717A] hover:text-red-400 hover:bg-red-950/30 rounded transition-colors"
@@ -1340,56 +1419,199 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Image Upload Area with Drag & Drop Preview */}
-                <div>
-                  <label className="block text-xs font-medium text-[#A1A1AA] mb-1">
-                    Product Image * (JPG, PNG, WebP &lt; 8MB)
-                  </label>
+                {/* Multiple Images Upload & Gallery Arrangement */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium text-[#A1A1AA]">
+                      Product Photos * <span className="text-[#71717A]">(First photo is the primary store thumbnail)</span>
+                    </label>
+                    {productImages.length > 0 && (
+                      <span className="text-[11px] font-mono text-[#E7A96B]">
+                        {productImages.length} photo{productImages.length > 1 ? 's' : ''} in gallery
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Dropzone with Drag & Drop and Multiple Selection */}
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-[#2C2C32] hover:border-[#E7A96B]/60 bg-[#161619] rounded-xl p-4 sm:p-6 text-center cursor-pointer transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragOver(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragOver(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        handleAddFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
+                      isDragOver
+                        ? 'border-[#E7A96B] bg-[#E7A96B]/10 shadow-inner'
+                        : 'border-[#2C2C32] hover:border-[#E7A96B]/60 bg-[#161619]'
+                    }`}
                   >
                     <input
                       ref={fileInputRef}
                       type="file"
+                      multiple
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={handleFileChange}
+                      onChange={handleFileInputChange}
                       className="hidden"
                     />
 
-                    {imagePreviewUrl ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <div className="w-28 h-28 rounded-lg overflow-hidden border border-[#3E3E46] bg-[#0E0E10] shrink-0">
-                          <img
-                            src={imagePreviewUrl}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="text-left space-y-1">
-                          <div className="text-xs font-semibold text-[#F5F3EF]">
-                            {imageFile ? imageFile.name : 'Existing Product Image'}
-                          </div>
-                          {imageFile && (
-                            <div className="text-[11px] text-[#71717A] font-mono">
-                              {(imageFile.size / (1024 * 1024)).toFixed(2)} MB · {imageFile.type}
-                            </div>
-                          )}
-                          <p className="text-[11px] text-[#E7A96B]">Click to replace image</p>
-                        </div>
+                    <div className="space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-[#1C1C20] border border-[#2A2A2E] flex items-center justify-center mx-auto text-[#E7A96B]">
+                        <Upload className="w-5 h-5" />
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Upload className="w-8 h-8 text-[#E7A96B] mx-auto opacity-80" />
-                        <div className="text-xs text-[#F5F3EF] font-medium">
-                          Click to select or drag a product photo
-                        </div>
-                        <div className="text-[11px] text-[#71717A] font-mono">
-                          JPG, PNG, or WebP up to 8MB
-                        </div>
+                      <div className="text-xs text-[#F5F3EF] font-medium">
+                        Click to select or drag & drop multiple product photos
                       </div>
-                    )}
+                      <div className="text-[11px] text-[#71717A] font-mono">
+                        Select multiple files at once · JPG, PNG, or WebP up to 8MB each
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Upload Progress Bar (during saving) */}
+                  {uploadProgress && (
+                    <div className="bg-[#18181C] border border-[#2A2A2E] rounded-lg p-3 space-y-1.5 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <span className="text-[#F5F3EF]">Uploading photos to Supabase Storage...</span>
+                        <span className="text-[#E7A96B] font-bold">
+                          {uploadProgress.current} / {uploadProgress.total}
+                        </span>
+                      </div>
+                      <div className="w-full bg-[#101012] h-2 rounded-full overflow-hidden border border-[#27272A]">
+                        <div
+                          className="bg-[#E7A96B] h-full transition-all duration-300 ease-out"
+                          style={{
+                            width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Photo Preview & Reordering Grid */}
+                  {productImages.length > 0 && (
+                    <div className="bg-[#141416] border border-[#242428] rounded-xl p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#222226] pb-2.5">
+                        <div className="text-xs text-[#A1A1AA] flex items-center gap-1.5">
+                          <Images className="w-3.5 h-3.5 text-[#E7A96B]" />
+                          <span>Image Order & Gallery Strip Preview</span>
+                          <span className="text-[11px] text-[#71717A] hidden sm:inline">
+                            (Use arrows to reorder. Photo #1 is the primary store thumbnail)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-[#1E1E22] hover:bg-[#28282E] text-[#E7A96B] hover:text-[#F5F3EF] rounded border border-[#2E2E34] transition-colors cursor-pointer"
+                        >
+                          <PlusCircle className="w-3 h-3" />
+                          <span>Add More Photos</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {productImages.map((img, idx) => {
+                          const isPrimary = idx === 0;
+                          return (
+                            <div
+                              key={img.id}
+                              className={`group relative rounded-lg overflow-hidden border-2 bg-[#0E0E10] flex flex-col transition-all ${
+                                isPrimary
+                                  ? 'border-[#E7A96B] ring-2 ring-[#E7A96B]/20 shadow-lg shadow-[#E7A96B]/5'
+                                  : 'border-[#27272A] hover:border-[#3E3E46]'
+                              }`}
+                            >
+                              {/* Image Preview */}
+                              <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#0A0A0C]">
+                                <img
+                                  src={img.previewUrl}
+                                  alt={img.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+
+                                {/* Primary Thumbnail Badge */}
+                                {isPrimary ? (
+                                  <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1 bg-[#101012]/95 text-[#E7A96B] px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-[#E7A96B]/50 shadow-md">
+                                    <Star className="w-3 h-3 fill-current text-[#E7A96B]" />
+                                    <span>PRIMARY</span>
+                                  </div>
+                                ) : (
+                                  <div className="absolute top-1.5 left-1.5 z-10 bg-[#101012]/80 text-[#A1A1AA] px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#2D2D32]">
+                                    #{idx + 1}
+                                  </div>
+                                )}
+
+                                {/* Delete / Remove Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProductImage(idx)}
+                                  className="absolute top-1.5 right-1.5 z-10 p-1 rounded-full bg-[#101012]/80 hover:bg-red-950/80 text-[#A1A1AA] hover:text-red-300 border border-[#2D2D32] hover:border-red-800 transition-colors cursor-pointer"
+                                  title="Remove this photo"
+                                  aria-label="Remove photo"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Card Controls & Details Bar */}
+                              <div className="p-2 bg-[#161619] border-t border-[#222226] flex items-center justify-between gap-1">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[11px] font-semibold text-[#F5F3EF] truncate">
+                                    {img.name}
+                                  </div>
+                                  <div className="text-[10px] text-[#71717A] font-mono">
+                                    {img.type === 'new'
+                                      ? img.size
+                                        ? `${(img.size / (1024 * 1024)).toFixed(2)} MB`
+                                        : 'Ready to upload'
+                                      : 'Saved photo'}
+                                  </div>
+                                </div>
+
+                                {/* Reorder Controls: Move Left & Move Right */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProductImage(idx, idx - 1)}
+                                    disabled={idx === 0}
+                                    className="p-1 rounded bg-[#1F1F24] hover:bg-[#2A2A30] text-[#A1A1AA] hover:text-[#FFFFFF] disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                    title={idx === 1 ? 'Make Primary Thumbnail' : 'Move Earlier'}
+                                    aria-label="Move photo earlier"
+                                  >
+                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveProductImage(idx, idx + 1)}
+                                    disabled={idx === productImages.length - 1}
+                                    className="p-1 rounded bg-[#1F1F24] hover:bg-[#2A2A30] text-[#A1A1AA] hover:text-[#FFFFFF] disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                    title="Move Later"
+                                    aria-label="Move photo later"
+                                  >
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>

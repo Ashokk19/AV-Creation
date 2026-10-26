@@ -40,6 +40,17 @@ export async function uploadEnquiryAttachment(file: File): Promise<{ url: string
   };
 }
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 /**
  * Submit a customer custom print enquiry to Supabase
  */
@@ -84,7 +95,11 @@ export async function submitEnquiry(
     attachmentName = uploaded.name;
   }
 
+  const enquiryId = generateUUID();
+  const timestamp = new Date().toISOString();
+
   const payload = {
+    id: enquiryId,
     customer_name: data.customer_name.trim(),
     email: data.email.trim().toLowerCase(),
     phone: data.phone?.trim() || null,
@@ -100,17 +115,30 @@ export async function submitEnquiry(
     status: 'new' as const,
   };
 
-  const { data: inserted, error } = await client
+  // Note: We deliberately do NOT chain .select() or .single() here.
+  // In PostgreSQL RLS, chaining .select() causes PostgREST to issue `INSERT ... RETURNING *`.
+  // Because public/anonymous visitors do not have SELECT permissions on the enquiries table
+  // (which is strictly restricted to authenticated administrators for customer privacy),
+  // PostgreSQL evaluates the SELECT policy on the RETURNING row and rejects the entire insert
+  // with "new row violates row-level security policy for table 'enquiries'".
+  // Performing a pure INSERT without RETURNING allows the public INSERT policy (WITH CHECK (true))
+  // to succeed cleanly without attempting an unauthorized read.
+  const { error } = await client
     .from('enquiries')
-    .insert([payload])
-    .select()
-    .single();
+    .insert([payload]);
 
   if (error) {
     throw new Error(error.message || 'Failed to submit enquiry.');
   }
 
-  return inserted;
+  const insertedRecord: CustomerEnquiry = {
+    ...payload,
+    admin_notes: null,
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+
+  return insertedRecord;
 }
 
 /**

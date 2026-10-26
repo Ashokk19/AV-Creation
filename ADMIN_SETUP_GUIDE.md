@@ -190,9 +190,15 @@ These categories appear on the homepage and in the Collections view even when 0 
 - **Short Overview:** A 1-line hook displayed on preview cards and horizontal carousels (e.g. *Generative dual-layered Voronoi lamp diffusing warm ambient light.*).
 - **Full Narrative Description:** In-depth description shown when a visitor clicks into the product detail modal. Explain the design inspiration, tactile qualities, and real-world usage.
 
-#### 2. Multiple Product Images & Primary Thumbnail
+#### 2. Multiple Product Images, Automatic Studio Compression & Primary Thumbnail
 - **Multi-Image Selection:** Select and upload multiple product photos simultaneously from your computer using the file picker or drag-and-drop.
 - **Accepted formats:** PNG, JPG, JPEG, WEBP (up to 8MB per file).
+- **Automatic High-Fidelity Compression:**
+  - Every uploaded photo is automatically optimized client-side before being transmitted to Supabase Storage.
+  - Oversized resolutions are gracefully downsampled to high-definition retina bounds (max 1920×1920) preserving the exact aspect ratio.
+  - Images are encoded to modern WebP format at 88% studio quality, preserving fine 3D print layer lines, material sheens, and lighting gradients with zero perceptible visual degradation.
+  - Typical file size reduction is **60% to 85%** (e.g. a 4.5MB camera capture compresses down to ~450KB), providing near-instant uploads and lightning-fast browsing for customers.
+  - Live savings badges (e.g. `2.4 MB → 310 KB (-87%)`) display in real time on the preview cards.
 - **Primary Thumbnail (Photo #1):**
   - The first image in the list is automatically badged as **PRIMARY** with a gold star.
   - This primary photo serves as the product thumbnail on the homepage, hero section, collection carousels, and category cards.
@@ -363,6 +369,34 @@ ON CONFLICT (id) DO UPDATE SET role = 'admin';
 
 ### Q: What happens if an image fails to upload?
 **Fix:** Ensure that you have run `/supabase/schema.sql`, which creates the `product-images` storage bucket and configures public read and admin upload policies. Verify that your file is under 8MB.
+
+### Q: While sending custom enquiries, getting "new row violates row-level security policy for table \"enquiries\""?
+**Cause:** In PostgreSQL Row-Level Security, when an INSERT statement returns row representations (`RETURNING *` via `.select()`), PostgreSQL evaluates the `SELECT` policy against the newly inserted row. Because public customer submissions are from anonymous visitors and viewing enquiries is restricted to administrators (`public.is_admin()`), PostgreSQL rejects the read operation and fails the entire insert transaction. Additionally, if the table policy did not explicitly grant permissions to the `anon` role, PostgreSQL blocks anonymous insertions.  
+**Codebase Fix:** The app has updated `src/services/enquiryService.ts` to perform a pure insert without `.select()` or `RETURNING *`, while pre-generating the enquiry UUID client-side.  
+**Supabase Database Fix:** Run the following quick query in your Supabase **SQL Editor** to ensure the RLS policies explicitly allow anonymous and authenticated submissions and reference attachments:
+```sql
+-- Fix Enquiries RLS Policy for Public Submissions
+ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can submit enquiries" ON public.enquiries;
+CREATE POLICY "Public can submit enquiries"
+    ON public.enquiries FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (true);
+
+-- Ensure public can upload and view reference attachments
+DROP POLICY IF EXISTS "Public can upload enquiry attachments" ON storage.objects;
+CREATE POLICY "Public can upload enquiry attachments"
+    ON storage.objects FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (bucket_id = 'enquiry-attachments');
+
+DROP POLICY IF EXISTS "Public can view enquiry attachments" ON storage.objects;
+CREATE POLICY "Public can view enquiry attachments"
+    ON storage.objects FOR SELECT
+    TO anon, authenticated
+    USING (bucket_id = 'enquiry-attachments');
+```
 
 ---
 

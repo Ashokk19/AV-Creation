@@ -235,7 +235,7 @@ DROP POLICY IF EXISTS "Admins can read admin_users" ON public.admin_users;
 CREATE POLICY "Admins can read admin_users" ON public.admin_users FOR SELECT USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Public can submit enquiries" ON public.enquiries;
-CREATE POLICY "Public can submit enquiries" ON public.enquiries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public can submit enquiries" ON public.enquiries FOR INSERT TO anon, authenticated WITH CHECK (true);
 DROP POLICY IF EXISTS "Admins can view enquiries" ON public.enquiries;
 CREATE POLICY "Admins can view enquiries" ON public.enquiries FOR SELECT USING (public.is_admin());
 DROP POLICY IF EXISTS "Admins can update enquiries" ON public.enquiries;
@@ -260,9 +260,9 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('enquiry-attachments', 'e
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 DROP POLICY IF EXISTS "Public can upload enquiry attachments" ON storage.objects;
-CREATE POLICY "Public can upload enquiry attachments" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'enquiry-attachments');
+CREATE POLICY "Public can upload enquiry attachments" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'enquiry-attachments');
 DROP POLICY IF EXISTS "Public can view enquiry attachments" ON storage.objects;
-CREATE POLICY "Public can view enquiry attachments" ON storage.objects FOR SELECT USING (bucket_id = 'enquiry-attachments');
+CREATE POLICY "Public can view enquiry attachments" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'enquiry-attachments');
 DROP POLICY IF EXISTS "Admins can delete enquiry attachments" ON storage.objects;
 CREATE POLICY "Admins can delete enquiry attachments" ON storage.objects FOR DELETE USING (bucket_id = 'enquiry-attachments' AND public.is_admin());
 

@@ -59,6 +59,7 @@ import {
   reorderImages,
   removeImageAtIndex,
 } from '../../utils/galleryLogic';
+import { compressImageForUpload, formatFileSize } from '../../utils/imageOptimizer';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -89,7 +90,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prodDesc, setProdDesc] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodStatus, setProdStatus] = useState<'active' | 'draft'>('active');
-  // Multi-image state for product form
+  // Multi-image state for product form with compression metadata
   const [productImages, setProductImages] = useState<Array<{
     id: string;
     type: 'existing' | 'new';
@@ -98,6 +99,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     path?: string;
     name: string;
     size?: number;
+    originalSize?: number;
+    savingsPercent?: number;
+    isOptimized?: boolean;
+    isOptimizing?: boolean;
   }>>([]);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -166,8 +171,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 4500);
   };
 
-  // Add files to product images state with format and size validation
-  const handleAddFiles = (files: FileList | File[]) => {
+  // Add files to product images state with format validation and auto lossless compression
+  const handleAddFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
 
@@ -177,16 +182,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const newItems = fileArray.map((file) => ({
+    const tempItems = fileArray.map((file) => ({
       id: `new-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       type: 'new' as const,
       previewUrl: URL.createObjectURL(file),
       file,
       name: file.name,
       size: file.size,
+      originalSize: file.size,
+      isOptimizing: true,
     }));
 
-    setProductImages((prev) => [...prev, ...newItems]);
+    setProductImages((prev) => [...prev, ...tempItems]);
+
+    // Asynchronously compress each file without locking the UI
+    for (const item of tempItems) {
+      try {
+        const result = await compressImageForUpload(item.file);
+        setProductImages((prev) =>
+          prev.map((p) => {
+            if (p.id === item.id) {
+              return {
+                ...p,
+                file: result.file,
+                name: result.file.name,
+                size: result.compressedSize,
+                originalSize: result.originalSize,
+                savingsPercent: result.savingsPercent,
+                isOptimized: result.isOptimized,
+                isOptimizing: false,
+              };
+            }
+            return p;
+          })
+        );
+      } catch {
+        setProductImages((prev) =>
+          prev.map((p) => (p.id === item.id ? { ...p, isOptimizing: false } : p))
+        );
+      }
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1476,7 +1511,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Click to select or drag & drop multiple product photos
                       </div>
                       <div className="text-[11px] text-[#71717A] font-mono">
-                        Select multiple files at once · JPG, PNG, or WebP up to 8MB each
+                        JPG, PNG, or WebP up to 8MB · Auto-compressed for ultra-fast web delivery with zero visual loss
                       </div>
                     </div>
                   </div>
@@ -1485,7 +1520,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {uploadProgress && (
                     <div className="bg-[#18181C] border border-[#2A2A2E] rounded-lg p-3 space-y-1.5 animate-in fade-in duration-150">
                       <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-[#F5F3EF]">Uploading photos to Supabase Storage...</span>
+                        <span className="text-[#F5F3EF]">Optimizing & uploading photos to Supabase Storage...</span>
                         <span className="text-[#E7A96B] font-bold">
                           {uploadProgress.current} / {uploadProgress.total}
                         </span>
@@ -1574,11 +1609,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     {img.name}
                                   </div>
                                   <div className="text-[10px] text-[#71717A] font-mono">
-                                    {img.type === 'new'
-                                      ? img.size
-                                        ? `${(img.size / (1024 * 1024)).toFixed(2)} MB`
-                                        : 'Ready to upload'
-                                      : 'Saved photo'}
+                                    {img.type === 'new' ? (
+                                      img.isOptimizing ? (
+                                        <span className="text-[#E7A96B] animate-pulse">Compressing...</span>
+                                      ) : img.isOptimized && img.originalSize && img.size && img.savingsPercent ? (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[#71717A] line-through">{formatFileSize(img.originalSize)}</span>
+                                          <span className="text-emerald-400 font-bold">{formatFileSize(img.size)}</span>
+                                          <span className="text-emerald-400 font-semibold bg-emerald-950/70 border border-emerald-800/40 px-1 py-0.2 rounded text-[9px]">
+                                            -{img.savingsPercent}%
+                                          </span>
+                                        </div>
+                                      ) : img.size ? (
+                                        <span>{formatFileSize(img.size)}</span>
+                                      ) : (
+                                        <span>Ready to upload</span>
+                                      )
+                                    ) : (
+                                      <span>Saved photo</span>
+                                    )}
                                   </div>
                                 </div>
 

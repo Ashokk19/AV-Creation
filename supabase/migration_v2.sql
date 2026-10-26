@@ -47,6 +47,7 @@ ALTER TABLE public.enquiries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public can submit enquiries" ON public.enquiries;
 CREATE POLICY "Public can submit enquiries"
     ON public.enquiries FOR INSERT
+    TO anon, authenticated
     WITH CHECK (true);
 
 -- Only verified administrators can view submitted enquiries
@@ -77,12 +78,14 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 DROP POLICY IF EXISTS "Public can upload enquiry attachments" ON storage.objects;
 CREATE POLICY "Public can upload enquiry attachments"
     ON storage.objects FOR INSERT
+    TO anon, authenticated
     WITH CHECK (bucket_id = 'enquiry-attachments');
 
 -- Public and admins can view enquiry attachments
 DROP POLICY IF EXISTS "Public can view enquiry attachments" ON storage.objects;
 CREATE POLICY "Public can view enquiry attachments"
     ON storage.objects FOR SELECT
+    TO anon, authenticated
     USING (bucket_id = 'enquiry-attachments');
 
 -- Admins can delete enquiry attachments

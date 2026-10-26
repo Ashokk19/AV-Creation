@@ -470,7 +470,7 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
 
       {/* Macro Studio Watermark / Calibration mark */}
       <div className="absolute bottom-2 right-3 pointer-events-none text-[9px] uppercase tracking-widest text-[#737373] font-mono opacity-60">
-        AV·0{product.specs.layerResolution.slice(0, 4)}mm
+        AV·{typeof product.specs === 'object' && product.specs?.layerResolution ? `0${product.specs.layerResolution.slice(0, 4)}` : '00.12'}mm
       </div>
     </div>
   );

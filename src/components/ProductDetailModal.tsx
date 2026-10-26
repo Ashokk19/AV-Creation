@@ -5,10 +5,6 @@ import {
   Layers,
   Sparkles,
   Send,
-  Ruler,
-  Clock,
-  Weight,
-  Cpu,
   ChevronLeft,
   ChevronRight,
   ShoppingBag,
@@ -48,7 +44,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onSelectRelated,
   relatedProducts,
 }) => {
-  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
   const [activeAngle, setActiveAngle] = useState<'primary' | 'detail' | 'sliced'>('primary');
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -63,7 +58,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Reset state when product changes
   useEffect(() => {
-    setSelectedColorIndex(0);
     setActiveAngle('primary');
     setQuantity(1);
     setActiveImageIndex(0);
@@ -130,35 +124,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   if (!isOpen || !product) return null;
 
-  const activeColor = product.availableColors[selectedColorIndex] || product.availableColors[0];
+  const activeColor = product.availableColors?.[0] || {
+    name: 'Standard',
+    hex: '#E7A96B',
+    filamentType: 'PLA+',
+  };
   const currentImageUrl = galleryImages[activeImageIndex] || galleryImages[0] || '';
-
-  const specsLayer =
-    typeof product.specs === 'object' && product.specs?.layerResolution
-      ? product.specs.layerResolution
-      : typeof (product as any).specs === 'string'
-      ? (product as any).specs
-      : '0.12–0.16 mm';
-
-  const specsPrintTime =
-    typeof product.specs === 'object' && product.specs?.printTimeHours !== undefined
-      ? product.specs.printTimeHours
-      : 12;
-
-  const specsWeight =
-    typeof product.specs === 'object' && product.specs?.weightGrams !== undefined
-      ? product.specs.weightGrams
-      : 180;
-
-  const specsNozzle =
-    typeof product.specs === 'object' && product.specs?.nozzleDiameter
-      ? product.specs.nozzleDiameter
-      : '0.4 mm Hardened Brass';
-
-  const specsDimensions =
-    typeof product.specs === 'object' && product.specs?.dimensions
-      ? `${product.specs.dimensions.widthMm ?? 120} × ${product.specs.dimensions.depthMm ?? 120} × ${product.specs.dimensions.heightMm ?? 140} mm`
-      : '120 × 120 × 140 mm';
 
   return (
     <div
@@ -176,8 +147,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#222226] bg-[#161618]">
           <div className="flex items-center gap-2 text-xs font-mono text-[#A1A1AA]">
             <span>{product.categoryName}</span>
-            <span aria-hidden="true">·</span>
-            <span className="text-[#E7A96B]">{specsLayer}</span>
             {hasMultipleImages && (
               <>
                 <span aria-hidden="true">·</span>
@@ -353,37 +322,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 </div>
               )}
-
-              {/* Material & Color Swatch Visualizer */}
-              <div className="bg-[#18181A] border border-[#27272A] p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">
-                    Filament Finishes
-                  </span>
-                  <span className="text-xs font-mono text-[#E7A96B]">
-                    {activeColor.name} ({activeColor.filamentType})
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2.5">
-                  {product.availableColors.map((color, idx) => (
-                    <button
-                      key={color.name}
-                      onClick={() => setSelectedColorIndex(idx)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs transition-all ${
-                        selectedColorIndex === idx
-                          ? 'border-[#E7A96B] bg-[#222226] text-[#F5F3EF]'
-                          : 'border-[#2D2D32] bg-[#141416] text-[#A1A1AA] hover:border-[#3E3E46]'
-                      }`}
-                    >
-                      <span
-                        className="w-3 h-3 rounded-full border border-black/30"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <span>{color.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Product Intel Column (5 Cols on desktop) */}
@@ -416,37 +354,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {/* Storytelling Description */}
               <div className="space-y-3 text-sm text-[#D4D4D8] leading-relaxed">
                 <p>{product.storyDescription}</p>
-              </div>
-
-              {/* Additive Manufacturing Technical Blueprint */}
-              <div className="bg-[#18181A] border border-[#27272A] rounded-lg p-4 space-y-3">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#A1A1AA] border-b border-[#242428] pb-2">
-                  Additive Print Specifications
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-                  <div className="flex items-center gap-2 text-[#A1A1AA]">
-                    <Clock className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Print Time: <strong className="text-[#F5F3EF]">{specsPrintTime} hrs</strong></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[#A1A1AA]">
-                    <Layers className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Layer: <strong className="text-[#F5F3EF]">{specsLayer}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[#A1A1AA]">
-                    <Weight className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Weight: <strong className="text-[#F5F3EF]">{specsWeight}g</strong></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[#A1A1AA]">
-                    <Cpu className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>Nozzle: <strong className="text-[#F5F3EF]">{specsNozzle}</strong></span>
-                  </div>
-                  <div className="col-span-2 flex items-center gap-2 text-[#A1A1AA] pt-1 border-t border-[#222226]">
-                    <Ruler className="w-3.5 h-3.5 text-[#E7A96B]" />
-                    <span>
-                      Dimensions: <strong className="text-[#F5F3EF]">{specsDimensions}</strong>
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Action Buttons: Add to Cart & Custom Commission */}

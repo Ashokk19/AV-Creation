@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowDown, Layers, Sparkles, ChevronRight, Eye, Send } from 'lucide-react';
+import React from 'react';
+import { ArrowDown, ChevronRight, Eye, Send } from 'lucide-react';
 import { ProductItem } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
 import { formatPriceINR } from '../lib/config';
@@ -17,12 +17,6 @@ export const HeroFeature: React.FC<HeroFeatureProps> = ({
   onViewProduct,
   onRequestCustom,
 }) => {
-  const [activeAngle, setActiveAngle] = useState<'primary' | 'sliced'>('primary');
-  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
-
-  const activeColor = product
-    ? product.availableColors[selectedColorIndex] || product.availableColors[0]
-    : undefined;
 
   return (
     <section className="relative w-full min-h-[92vh] flex items-center bg-[#101010] overflow-hidden pt-20 pb-12">
@@ -33,58 +27,11 @@ export const HeroFeature: React.FC<HeroFeatureProps> = ({
             <>
               <PrintArtwork
                 product={product}
-                activeColor={activeColor}
-                angle={activeAngle}
+                activeColor={product.availableColors?.[0]}
+                angle="primary"
                 className="w-full h-full min-h-[480px]"
                 priority
               />
-
-              {/* Slicing / Angle Mode Floating Switcher (Desktop and Tablet) */}
-              <div className="absolute bottom-6 right-6 md:right-12 z-20 hidden sm:flex items-center gap-2 bg-[#141416]/90 border border-[#26262A] p-1.5 rounded-lg backdrop-blur-md shadow-2xl">
-                <button
-                  onClick={() => setActiveAngle('primary')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                    activeAngle === 'primary'
-                      ? 'bg-[#2A2A2E] text-[#F5F3EF] shadow-sm'
-                      : 'text-[#A6A6A6] hover:text-[#F5F3EF]'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#E7A96B]" />
-                  <span>Ambient Studio</span>
-                </button>
-                <button
-                  onClick={() => setActiveAngle('sliced')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                    activeAngle === 'sliced'
-                      ? 'bg-[#2A2A2E] text-[#E7A96B] shadow-sm'
-                      : 'text-[#A6A6A6] hover:text-[#F5F3EF]'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Slice Layers</span>
-                </button>
-              </div>
-
-              {/* Color Finish Picker */}
-              {product.availableColors && product.availableColors.length > 0 && (
-                <div className="absolute top-24 right-6 md:right-12 z-20 hidden sm:flex items-center gap-2 bg-[#141416]/80 border border-[#26262A] px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                  <span className="text-[11px] text-[#8E8E93] uppercase font-mono mr-1">Finish:</span>
-                  {product.availableColors.map((color, idx) => (
-                    <button
-                      key={color.name}
-                      onClick={() => setSelectedColorIndex(idx)}
-                      className={`w-4 h-4 rounded-full border transition-all ${
-                        selectedColorIndex === idx
-                          ? 'border-[#F5F3EF] scale-125 shadow-sm'
-                          : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                      aria-label={`Select ${color.name} finish`}
-                    />
-                  ))}
-                </div>
-              )}
             </>
           ) : (
             /* Studio Hero Visual when Catalogue is Waiting for Products */

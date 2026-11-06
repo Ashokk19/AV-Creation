@@ -28,13 +28,13 @@ export const AboutSection: React.FC = () => {
 
           <div className="lg:col-span-7 space-y-5 text-sm sm:text-base text-[#A1A1AA] leading-relaxed font-normal">
             <p>
-              AV Creation started with a singular obsession: exploring the boundary where mathematical digital geometry transforms into physical, tactile objects. Where traditional industrial manufacturing demands rigid molds and compromises, 3D printing enables us to craft impossible overhangs, internal gyroid light labyrinths, and articulated print-in-place mechanisms.
+              At AV Creations, we believe every great creation begins with an idea. Through 3D printing, we turn those ideas into real objects that bring creativity, joy, and character into everyday life.
             </p>
             <p>
-              Every piece in this portfolio is produced inside our studio on carefully calibrated CoreXY motion systems. We tune print speeds down to 35mm/s on delicate outer perimeters, calibrate micro-retractions to eliminate stringing, and dial in heated chamber temperatures to guarantee layer adhesion that endures daily use.
+              From playful articulated toys and interactive clickers to decorative lamps and unique home décor, every creation is designed to offer something special. We love exploring new designs, experimenting with colours, and transforming digital concepts into tangible products that people can enjoy, display, and share.
             </p>
             <p className="text-[#F5F3EF] font-medium">
-              We don&apos;t produce plastic novelty trinkets. We build durable lamps, kinetic flexi creatures, and architecture-grade functional objects crafted to be lived with, admired, and held.
+              As a creative 3D printing studio, we focus on the little details that make each piece unique. Our goal is simple: to make imaginative designs accessible, create products that spark curiosity, and bring a little more creativity into the world.
             </p>
           </div>
         </div>

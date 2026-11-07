@@ -94,13 +94,20 @@ describe('instagramOrder', () => {
     assert.deepEqual(result.unpricedProducts, ['Custom Kinetic Sphere']);
   });
 
-  test('formats structured Instagram message with username, items, totals, and color choices', () => {
+  test('formats structured Instagram message with items, quantities, prices, subtotals, and total', () => {
     const message = generateInstagramOrderMessage(samplePricedItems);
-    assert.match(message, /@avcreations963/);
-    assert.match(message, /Lotus Lamp \(Warm Amber\) — Qty: 2 × ₹350 = ₹700/);
-    assert.match(message, /Articulated Dragon \(Silk Gold\) — Qty: 1 × ₹500 = ₹500/);
+    assert.match(message, /Hi! I'd like to place an order\./);
+    assert.match(message, /Order Details:/);
+    assert.match(message, /1\. Lotus Lamp \(Warm Amber\)/);
+    assert.match(message, /- Quantity: 2/);
+    assert.match(message, /- Price: ₹350/);
+    assert.match(message, /- Subtotal: ₹700/);
+    assert.match(message, /2\. Articulated Dragon \(Silk Gold\)/);
+    assert.match(message, /- Quantity: 1/);
+    assert.match(message, /- Price: ₹500/);
+    assert.match(message, /- Subtotal: ₹500/);
     assert.match(message, /Total: ₹1,200/);
-    assert.match(message, /Please confirm availability/);
+    assert.match(message, /Please let me know how to proceed with the order\./);
   });
 
   test('generates correct Instagram direct URLs with username', () => {

@@ -41,33 +41,50 @@ export function validateCartForInstagram(items: CartItem[]): InstagramOrderValid
 /**
  * Builds the structured Instagram Direct Message text:
  *
- * Hello AV Creations (@avcreations963)! I'd like to place an order:
+ * Hi! I'd like to place an order.
  *
- * 1. Lotus Lamp (Warm Glow) — Qty: 2 × ₹350 = ₹700
- * 2. Articulated Dragon — Qty: 1 × ₹500 = ₹500
+ * Order Details:
  *
- * Total: ₹1,200
+ * 1. Articulated Dragon
+ *    - Quantity: 2
+ *    - Price: ₹300
+ *    - Subtotal: ₹600
  *
- * Please confirm availability, finish options, and delivery details.
+ * 2. Lotus Lamp
+ *    - Quantity: 1
+ *    - Price: ₹450
+ *    - Subtotal: ₹450
+ *
+ * Total: ₹1,050
+ *
+ * Please let me know how to proceed with the order.
  */
 export function generateInstagramOrderMessage(items: CartItem[]): string {
-  const lines: string[] = [`Hello AV Creations (@${INSTAGRAM_USERNAME})! I'd like to place an order:\n`];
+  const lines: string[] = [
+    "Hi! I'd like to place an order.",
+    '',
+    'Order Details:',
+    '',
+  ];
 
   let grandTotal = 0;
 
   items.forEach((item, index) => {
-    const unitPrice = item.product.price || 0;
-    const lineTotal = unitPrice * item.quantity;
-    grandTotal += lineTotal;
+    const unitPrice = typeof item.product.price === 'number' && !isNaN(item.product.price) ? item.product.price : 0;
+    const subtotal = unitPrice * item.quantity;
+    grandTotal += subtotal;
 
     const colorNote = item.selectedColor ? ` (${item.selectedColor.name})` : '';
-    lines.push(
-      `${index + 1}. ${item.product.title}${colorNote} — Qty: ${item.quantity} × ${formatPriceINR(unitPrice)} = ${formatPriceINR(lineTotal)}`
-    );
+    lines.push(`${index + 1}. ${item.product.title}${colorNote}`);
+    lines.push(`   - Quantity: ${item.quantity}`);
+    lines.push(`   - Price: ${formatPriceINR(unitPrice)}`);
+    lines.push(`   - Subtotal: ${formatPriceINR(subtotal)}`);
+    lines.push('');
   });
 
-  lines.push(`\nTotal: ${formatPriceINR(grandTotal)}`);
-  lines.push('\nPlease confirm availability, finish options, and delivery details.');
+  lines.push(`Total: ${formatPriceINR(grandTotal)}`);
+  lines.push('');
+  lines.push('Please let me know how to proceed with the order.');
 
   return lines.join('\n');
 }

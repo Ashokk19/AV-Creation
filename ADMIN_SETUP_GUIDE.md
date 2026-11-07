@@ -270,9 +270,9 @@ Click **View Details** on any enquiry to open the dedicated inspection modal:
 
 ---
 
-## 6. Shopping Cart & WhatsApp Orders
+## 6. Shopping Cart, WhatsApp & Instagram Orders
 
-AV Creations utilizes an additive-manufacturing tailored shopping experience integrated directly with WhatsApp order initiation:
+AV Creations utilizes an additive-manufacturing tailored shopping experience integrated directly with both WhatsApp and Instagram order channels:
 
 ### Cart Drawer Experience
 - Visitors can add creations directly to their cart from product cards and from the Product Detail modal.
@@ -282,30 +282,24 @@ AV Creations utilizes an additive-manufacturing tailored shopping experience int
 
 ### Unpriced Product Safeguards
 - If a product does not have a price configured in Supabase, the product card clearly displays **"Price on request"**.
-- If a customer adds an unpriced product to their cart, checkout via WhatsApp is safely blocked and an alert banner lists the unpriced items requiring pricing before the order can be initiated.
+- If a customer adds an unpriced product to their cart, checkout via WhatsApp or Instagram is safely blocked and an alert banner lists the unpriced items requiring pricing before the order can be initiated.
 
-### WhatsApp Order Generation
-When the customer clicks **Order via WhatsApp**:
-1. The cart items, quantities, unit prices, line subtotals, and overall order total are structured into a clean, professional order message:
-   ```
-   Hello AV Creations! I'd like to order:
+### Multi-Channel Ordering (WhatsApp & Instagram)
+Customers have two direct order options in the Cart Drawer:
+1. **Order via WhatsApp:**
+   - Opens `https://wa.me/<NUMBER>?text=<MESSAGE>` with structured order lines, quantities, unit prices, line totals, and grand total.
+2. **Order via Instagram (@avcreations963):**
+   - Copies the complete structured order message to the customer's clipboard.
+   - Automatically opens Instagram Direct (`https://ig.me/m/avcreations963`) so the customer can paste and message `@avcreations963` directly.
+   - Provides clear in-drawer confirmation and a manual "Copy Order Message" fallback button.
 
-   1. Lotus Lamp — Qty: 2 × ₹350 = ₹700
-   2. Articulated Dragon — Qty: 1 × ₹500 = ₹500
-
-   Total: ₹1,200
-
-   Please confirm availability and delivery details.
-   ```
-2. The message is URL-encoded and opened via `https://wa.me/<NUMBER>?text=<MESSAGE>` in mobile or desktop browsers.
-3. The cart is not erased merely because WhatsApp was opened, avoiding lost carts. An explicit customer action can clear the cart.
-
-### Business WhatsApp Configuration
-Set your business WhatsApp phone number in `.env`:
+### Studio Channel Configuration
+Configure your WhatsApp number and Instagram handle in your `.env` file:
 ```env
 VITE_WHATSAPP_NUMBER="919876543210"
+VITE_INSTAGRAM_USERNAME="avcreations963"
 ```
-The application automatically cleans spaces, `+`, and hyphens to generate valid WhatsApp international links.
+The application links the Instagram profile (`https://www.instagram.com/avcreations963/`) directly in the top navigation bar near the Search button, in the mobile menu, and in the studio footer.
 
 ---
 

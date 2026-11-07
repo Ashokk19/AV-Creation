@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bookmark, ShoppingBag, Menu, X, ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { Search, Bookmark, ShoppingBag, Menu, X, ArrowUpRight, ShieldCheck, Instagram } from 'lucide-react';
+import { INSTAGRAM_PROFILE_URL, INSTAGRAM_USERNAME } from '../lib/config';
 
 interface NavbarProps {
   activeView: 'home' | 'collections' | 'custom' | 'about';
@@ -108,8 +109,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Zone 3: Actions (Search, Favorites, Admin Portal, Request Custom CTA) */}
+          {/* Zone 3: Actions (Instagram, Search, Favorites, Admin Portal, Request Custom CTA) */}
           <div className="flex items-center gap-3 shrink-0">
+            {/* Instagram Profile Trigger */}
+            <a
+              href={INSTAGRAM_PROFILE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 text-[#A6A6A6] hover:text-[#E7A96B] hover:bg-[#1E1E1E] rounded-md transition-colors flex items-center justify-center cursor-pointer group"
+              aria-label={`Visit AV Creations Instagram profile (@${INSTAGRAM_USERNAME})`}
+              title={`Instagram (@${INSTAGRAM_USERNAME})`}
+            >
+              <Instagram className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </a>
+
             {/* Search Trigger */}
             <button
               onClick={onOpenSearch}
@@ -240,6 +253,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Saved ({favoritesCount})</span>
               </button>
             </div>
+
+            <a
+              href={INSTAGRAM_PROFILE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-medium text-[#A6A6A6] hover:text-[#E7A96B] bg-[#1A1A1E] border border-[#28282E] transition-colors"
+            >
+              <Instagram className="w-4 h-4 text-[#E7A96B]" />
+              <span>Follow @{INSTAGRAM_USERNAME} on Instagram</span>
+            </a>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

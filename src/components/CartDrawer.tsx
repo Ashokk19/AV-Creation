@@ -10,11 +10,20 @@ import {
   Phone,
   Sparkles,
   ExternalLink,
+  Instagram,
+  Check,
+  Copy,
 } from 'lucide-react';
 import { CartItem, ProductItem } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
-import { formatPriceINR, WHATSAPP_BUSINESS_NUMBER, isWhatsAppConfigured } from '../lib/config';
+import { formatPriceINR, WHATSAPP_BUSINESS_NUMBER, isWhatsAppConfigured, INSTAGRAM_USERNAME } from '../lib/config';
 import { validateCartForWhatsApp, getWhatsAppOrderUrl } from '../utils/whatsappOrder';
+import {
+  validateCartForInstagram,
+  generateInstagramOrderMessage,
+  getInstagramOrderUrls,
+  copyOrderToClipboard,
+} from '../utils/instagramOrder';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -35,7 +44,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onClearCart,
   onSelectProduct,
 }) => {
-  const [orderInitiated, setOrderInitiated] = useState(false);
+  const [orderInitiated, setOrderInitiated] = useState<'whatsapp' | 'instagram' | null>(null);
+  const [copiedInstagramMessage, setCopiedInstagramMessage] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,7 +79,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
     // Open WhatsApp order in new window/tab
     window.open(result.url, '_blank', 'noopener,noreferrer');
-    setOrderInitiated(true);
+    setOrderInitiated('whatsapp');
+  };
+
+  const handleInstagramOrder = async () => {
+    const validation = validateCartForInstagram(items);
+    if (!validation.isValid) {
+      alert(validation.errorMessage || 'Unable to generate Instagram order message.');
+      return;
+    }
+
+    const message = generateInstagramOrderMessage(items);
+    const copied = await copyOrderToClipboard(message);
+    setCopiedInstagramMessage(copied);
+
+    const urls = getInstagramOrderUrls();
+    // Open Instagram DM directly with @avcreations963
+    window.open(urls.directUrl, '_blank', 'noopener,noreferrer');
+    setOrderInitiated('instagram');
   };
 
   return (
@@ -290,7 +317,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
               <div className="flex justify-between text-[#71717A] text-[11px]">
                 <span>Fulfillment & Packaging</span>
-                <span className="text-[#E7A96B]">Confirmed via WhatsApp</span>
+                <span className="text-[#E7A96B]">Confirmed via WhatsApp / Instagram</span>
               </div>
               <div className="pt-2 border-t border-[#26262B] flex justify-between items-baseline">
                 <div>
@@ -303,8 +330,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
             </div>
 
-            {/* Order via WhatsApp Action Button */}
-            <div className="space-y-2">
+            {/* Order Action Buttons: WhatsApp & Instagram */}
+            <div className="space-y-2.5">
               <button
                 onClick={handleWhatsAppOrder}
                 disabled={!validation.isValid}
@@ -314,19 +341,74 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span>Order via WhatsApp</span>
               </button>
 
+              <button
+                onClick={handleInstagramOrder}
+                disabled={!validation.isValid}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[#FFFFFF] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.99]"
+              >
+                <Instagram className="w-4 h-4" />
+                <span>Order via Instagram (@{INSTAGRAM_USERNAME})</span>
+              </button>
+
               <p className="text-[11px] text-[#71717A] text-center leading-relaxed">
-                Clicking opens WhatsApp with your prefilled order items. No online payment is charged now. AV Creations studio will verify availability and confirm fulfillment.
+                Choose WhatsApp or Instagram to send your prefilled order items directly to the studio. No online payment charged now — we confirm availability, finish options, and dispatch.
               </p>
             </div>
 
-            {orderInitiated && (
-              <div className="p-2.5 bg-[#1C1C22] border border-[#2E2E36] rounded-lg text-center space-y-1">
+            {orderInitiated === 'whatsapp' && (
+              <div className="p-3 bg-[#1C1C22] border border-emerald-500/30 rounded-lg text-center space-y-1">
                 <span className="text-[11px] text-emerald-400 font-semibold block">
                   WhatsApp window opened!
                 </span>
                 <p className="text-[10px] text-[#A1A1AA]">
                   Your cart remains saved until you wish to clear it.
                 </p>
+              </div>
+            )}
+
+            {orderInitiated === 'instagram' && (
+              <div className="p-3 bg-[#1C1C22] border border-[#FD1D1D]/30 rounded-lg text-left space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#F5F3EF]">
+                  <Instagram className="w-4 h-4 text-[#F77737]" />
+                  <span>Instagram Direct Opened (@{INSTAGRAM_USERNAME})</span>
+                </div>
+                <p className="text-[11px] text-[#D4D4D8] leading-relaxed">
+                  {copiedInstagramMessage
+                    ? `Your complete order details have been copied to your clipboard! Simply paste (Ctrl+V or Long-Press → Paste) in the chat box to send to @${INSTAGRAM_USERNAME}.`
+                    : `Opening Instagram DM. If the message didn't copy automatically, use the button below to copy your order summary.`}
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      const msg = generateInstagramOrderMessage(items);
+                      await copyOrderToClipboard(msg);
+                      setCopiedInstagramMessage(true);
+                    }}
+                    className="flex-1 py-1.5 px-3 bg-[#24242A] hover:bg-[#2E2E36] text-[#F5F3EF] rounded text-[11px] font-medium flex items-center justify-center gap-1.5 border border-[#34343C] transition-colors cursor-pointer"
+                  >
+                    {copiedInstagramMessage ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Order Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-[#E7A96B]" />
+                        <span>Copy Order Message</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={getInstagramOrderUrls().directUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-3 bg-[#24242A] hover:bg-[#2E2E36] text-[#E7A96B] rounded text-[11px] font-medium flex items-center justify-center gap-1 border border-[#34343C] transition-colors cursor-pointer"
+                  >
+                    <span>Open Chat</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
             )}
           </div>

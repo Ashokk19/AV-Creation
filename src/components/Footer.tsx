@@ -1,5 +1,6 @@
 import React from 'react';
-import { ArrowUp, Lock } from 'lucide-react';
+import { ArrowUp, Lock, Instagram } from 'lucide-react';
+import { INSTAGRAM_PROFILE_URL, INSTAGRAM_USERNAME } from '../lib/config';
 
 interface FooterProps {
   onNavigate: (view: 'home' | 'collections' | 'custom' | 'about') => void;
@@ -36,6 +37,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onRequestCustom, onN
             <div className="text-[11px] font-mono text-[#71717A] space-y-1">
               <div>Studio: Precision Additive Workshop</div>
               <div>Operating CoreXY Extrusions & Resin Light Engines</div>
+            </div>
+            <div>
+              <a
+                href={INSTAGRAM_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs text-[#E7A96B] hover:text-[#F2BA82] transition-colors group"
+              >
+                <Instagram className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                <span>@{INSTAGRAM_USERNAME} on Instagram</span>
+              </a>
             </div>
           </div>
 

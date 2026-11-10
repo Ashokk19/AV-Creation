@@ -22,6 +22,12 @@ import { Footer } from './components/Footer';
 import { AdminLogin } from './components/admin/AdminLogin';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { User } from '@supabase/supabase-js';
+import {
+  StoreSettings,
+  getStoredWhatsAppSettings,
+  fetchStoreSettings,
+  SETTINGS_CHANGE_EVENT,
+} from './services/settingsService';
 
 export default function App() {
   // Routing state based on URL pathname
@@ -78,6 +84,26 @@ export default function App() {
     }
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => getStoredWhatsAppSettings());
+
+  // Real-time synchronization of store settings (hero image choice, logo, whatsapp)
+  useEffect(() => {
+    const handleSettingsUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<StoreSettings>;
+      if (customEvent.detail) {
+        setStoreSettings(customEvent.detail);
+      } else {
+        setStoreSettings(getStoredWhatsAppSettings());
+      }
+    };
+    window.addEventListener(SETTINGS_CHANGE_EVENT, handleSettingsUpdate);
+    fetchStoreSettings().then((fresh) => {
+      setStoreSettings(fresh);
+    });
+    return () => {
+      window.removeEventListener(SETTINGS_CHANGE_EVENT, handleSettingsUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -261,10 +287,14 @@ export default function App() {
     setFavoriteIds([]);
   };
 
-  // Featured hero item (if any exists in Supabase, pick the featured one; otherwise null)
-  const featuredHeroProduct = useMemo(() => {
+  // Featured hero item (respects admin hero showcase selection, featured flag, or catalogue fallback)
+  const heroDisplayProduct = useMemo(() => {
+    if (storeSettings.hero_product_id) {
+      const chosen = products.find((p) => p.id === storeSettings.hero_product_id);
+      if (chosen) return chosen;
+    }
     return products.find((p) => p.featured) || (products.length > 0 ? products[0] : null);
-  }, [products]);
+  }, [products, storeSettings.hero_product_id]);
 
   // Dynamic Category Carousels for public home view
   const carousels = useMemo(() => {
@@ -505,7 +535,10 @@ export default function App() {
           <>
             {/* Immersive Cinematic Hero */}
             <HeroFeature
-              product={featuredHeroProduct}
+              heroImageType={storeSettings.hero_image_type}
+              product={heroDisplayProduct}
+              customImageUrl={storeSettings.hero_custom_image_url}
+              companyLogoUrl={storeSettings.company_logo_url}
               onExplore={handleExploreClick}
               onViewProduct={(p) => setSelectedProduct(p)}
               onRequestCustom={() => handlePublicNavigate('custom')}

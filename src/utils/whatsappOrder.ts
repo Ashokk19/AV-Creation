@@ -10,7 +10,10 @@ export interface WhatsAppOrderValidation {
 /**
  * Validates whether the cart can be checked out via WhatsApp
  */
-export function validateCartForWhatsApp(items: CartItem[]): WhatsAppOrderValidation {
+export function validateCartForWhatsApp(
+  items: CartItem[],
+  options?: { isEnabled?: boolean; number?: string }
+): WhatsAppOrderValidation {
   if (!items || items.length === 0) {
     return {
       isValid: false,
@@ -19,7 +22,16 @@ export function validateCartForWhatsApp(items: CartItem[]): WhatsAppOrderValidat
     };
   }
 
-  if (!isWhatsAppConfigured()) {
+  if (options?.isEnabled === false) {
+    return {
+      isValid: false,
+      errorMessage: 'WhatsApp ordering is currently disabled by the studio.',
+      unpricedProducts: [],
+    };
+  }
+
+  const effectiveNumber = options?.number ? options.number.replace(/[^\d]/g, '') : WHATSAPP_BUSINESS_NUMBER;
+  if (!effectiveNumber || effectiveNumber.length < 10) {
     return {
       isValid: false,
       errorMessage: 'Studio WhatsApp order line is not configured. Please contact the administrator.',
@@ -81,17 +93,21 @@ export function generateWhatsAppOrderMessage(items: CartItem[]): string {
 }
 
 /**
- * Generates the full wa.me URL for the cart order
+ * Generates the full wa.me URL for the cart order using either the configured or dynamic number
  */
-export function getWhatsAppOrderUrl(items: CartItem[]): { url: string; error?: string } {
-  const validation = validateCartForWhatsApp(items);
+export function getWhatsAppOrderUrl(
+  items: CartItem[],
+  overrideNumber?: string
+): { url: string; error?: string } {
+  const effectiveNumber = overrideNumber ? overrideNumber.replace(/[^\d]/g, '') : WHATSAPP_BUSINESS_NUMBER;
+  const validation = validateCartForWhatsApp(items, { isEnabled: true, number: effectiveNumber });
   if (!validation.isValid) {
     return { url: '', error: validation.errorMessage };
   }
 
   const message = generateWhatsAppOrderMessage(items);
   const encodedText = encodeURIComponent(message);
-  const url = `https://wa.me/${WHATSAPP_BUSINESS_NUMBER}?text=${encodedText}`;
+  const url = `https://wa.me/${effectiveNumber}?text=${encodedText}`;
 
   return { url };
 }

@@ -82,11 +82,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onBackTo
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4">
         {/* AV Creations Emblem Header */}
         <div className="text-center space-y-2">
-          <div className="w-20 h-20 mx-auto rounded-xl bg-transparent flex items-center justify-center p-1">
+          <div className="w-28 h-20 mx-auto flex items-center justify-center relative">
+            <div className="absolute inset-0 bg-[#E7A96B]/15 rounded-full blur-xl pointer-events-none" />
             <img
-              src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
-              alt="AV Creations Studio Emblem"
-              className="w-full h-full object-contain drop-shadow-lg"
+              src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
+              alt="AV Creations Studio Logo"
+              className="relative z-10 w-full h-full object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
             />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-[#F5F3EF]">

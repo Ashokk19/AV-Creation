@@ -44,7 +44,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onSelectRelated,
   relatedProducts,
 }) => {
-  const [activeAngle, setActiveAngle] = useState<'primary' | 'detail' | 'sliced'>('primary');
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -58,7 +57,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Reset state when product changes
   useEffect(() => {
-    setActiveAngle('primary');
     setQuantity(1);
     setActiveImageIndex(0);
   }, [product?.id]);
@@ -197,7 +195,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <PrintArtwork
                   product={product}
                   activeColor={activeColor}
-                  angle={activeAngle}
+                  angle="primary"
                   overrideImageUrl={currentImageUrl}
                   className="w-full h-full"
                 />
@@ -239,35 +237,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   </>
                 )}
-
-                {/* Perspective & Slicing Control Strip */}
-                <div className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 bg-[#141416]/90 border border-[#2A2A2E] p-1 rounded-md backdrop-blur-md">
-                  <button
-                    onClick={() => setActiveAngle('primary')}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      activeAngle === 'primary' ? 'bg-[#2A2A30] text-[#F5F3EF]' : 'text-[#8E8E93] hover:text-[#F5F3EF]'
-                    }`}
-                  >
-                    Studio
-                  </button>
-                  <button
-                    onClick={() => setActiveAngle('detail')}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      activeAngle === 'detail' ? 'bg-[#2A2A30] text-[#F5F3EF]' : 'text-[#8E8E93] hover:text-[#F5F3EF]'
-                    }`}
-                  >
-                    Macro
-                  </button>
-                  <button
-                    onClick={() => setActiveAngle('sliced')}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                      activeAngle === 'sliced' ? 'bg-[#2A2A30] text-[#E7A96B]' : 'text-[#8E8E93] hover:text-[#F5F3EF]'
-                    }`}
-                  >
-                    <Layers className="w-3 h-3" />
-                    <span>Toolpaths</span>
-                  </button>
-                </div>
               </div>
 
               {/* Scrollable Gallery Thumbnail Strip (Rendered only when multiple images exist) */}

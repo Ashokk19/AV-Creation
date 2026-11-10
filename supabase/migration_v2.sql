@@ -96,3 +96,32 @@ CREATE POLICY "Admins can delete enquiry attachments"
         bucket_id = 'enquiry-attachments'
         AND public.is_admin()
     );
+
+-- 6. Store Settings Table (WhatsApp Toggle & Number)
+CREATE TABLE IF NOT EXISTS public.store_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read store settings" ON public.store_settings;
+CREATE POLICY "Public can read store settings"
+    ON public.store_settings FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage store settings" ON public.store_settings;
+CREATE POLICY "Admins can manage store settings"
+    ON public.store_settings FOR ALL
+    TO authenticated
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+INSERT INTO public.store_settings (key, value)
+VALUES
+    ('whatsapp_enabled', 'true'::jsonb),
+    ('whatsapp_number', '"919876543210"'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+

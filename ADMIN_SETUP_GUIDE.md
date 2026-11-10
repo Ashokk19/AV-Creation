@@ -293,13 +293,23 @@ Customers have two direct order options in the Cart Drawer:
    - Automatically opens Instagram Direct (`https://ig.me/m/avcreations963`) so the customer can paste and message `@avcreations963` directly.
    - Provides clear in-drawer confirmation and a manual "Copy Order Message" fallback button.
 
-### Studio Channel Configuration
-Configure your WhatsApp number and Instagram handle in your `.env` file:
+### Studio Channel Configuration & Admin WhatsApp Toggle
+Administrators can control ordering channels and configure the WhatsApp line in real-time from the **Admin Dashboard**:
+1. Log in to the Admin Dashboard at `/admin`.
+2. Go to the **WhatsApp & Channels** tab (or use the quick toggle card on the **Overview** page).
+3. **Toggle WhatsApp Ordering:**
+   - **Enabled:** Visitors see the green **"Order via WhatsApp"** button in their shopping cart.
+   - **Disabled:** The **"Order via WhatsApp"** button is completely hidden from the public website, automatically funneling all customer orders directly through Instagram DM.
+4. **Edit Business WhatsApp Phone Number:**
+   - Enter your phone number with country code (e.g. `919876543210` for India, digits only).
+   - Use the **Test WhatsApp Link** button to verify that the chat opens correctly.
+   - Click **Save Channel Settings** to apply changes immediately across all devices and active visitor sessions.
+5. You can also specify defaults via your `.env` file:
 ```env
 VITE_WHATSAPP_NUMBER="919876543210"
 VITE_INSTAGRAM_USERNAME="avcreations963"
 ```
-The application links the Instagram profile (`https://www.instagram.com/avcreations963/`) directly in the top navigation bar near the Search button, in the mobile menu, and in the studio footer.
+The application links the Instagram profile (`https://www.instagram.com/avcreations963/`) directly in the top navigation bar near the Search button, in the mobile menu, in the cart drawer, and in the studio footer.
 
 ---
 

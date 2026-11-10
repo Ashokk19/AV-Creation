@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Images,
   Image as ImageIcon,
+  Instagram,
 } from 'lucide-react';
 import { CategoryRecord, ProductRecord, CustomerEnquiry } from '../../types';
 import {
@@ -53,13 +54,22 @@ import {
 } from '../../services/enquiryService';
 import { signOutAdmin } from '../../services/authService';
 import { SUPABASE_SQL_SCHEMA, isSupabaseConfigured, getProductImageUrl } from '../../lib/supabase';
-import { formatPriceINR } from '../../lib/config';
+import { formatPriceINR, INSTAGRAM_USERNAME, INSTAGRAM_PROFILE_URL } from '../../lib/config';
 import {
   validateImageFiles,
   reorderImages,
   removeImageAtIndex,
 } from '../../utils/galleryLogic';
 import { compressImageForUpload, formatFileSize } from '../../utils/imageOptimizer';
+import {
+  StoreSettings,
+  HeroImageType,
+  DEFAULT_COMPANY_LOGO,
+  getStoredWhatsAppSettings,
+  fetchStoreSettings,
+  updateStoreSettings,
+  sanitizePhoneNumber,
+} from '../../services/settingsService';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -67,7 +77,7 @@ interface AdminDashboardProps {
   adminEmail?: string;
 }
 
-type TabType = 'overview' | 'products' | 'categories' | 'enquiries' | 'add-product' | 'add-category' | 'database' | 'guide';
+type TabType = 'overview' | 'products' | 'categories' | 'enquiries' | 'add-product' | 'add-category' | 'settings' | 'database' | 'guide';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout,
@@ -135,20 +145,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [productSearch, setProductSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
 
+  // Store channel settings state (WhatsApp toggle, number & Hero showcase image selection)
+  const [whatsAppEnabled, setWhatsAppEnabled] = useState(true);
+  const [whatsAppNumber, setWhatsAppNumber] = useState('');
+  const [heroImageType, setHeroImageType] = useState<HeroImageType>('logo');
+  const [heroProductId, setHeroProductId] = useState('');
+  const [heroCustomImageUrl, setHeroCustomImageUrl] = useState('');
+  const [companyLogoUrl, setCompanyLogoUrl] = useState(DEFAULT_COMPANY_LOGO);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const heroImageInputRef = useRef<HTMLInputElement>(null);
 
   // Load data from Supabase
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [cats, prods, enqs] = await Promise.all([
+      const [cats, prods, enqs, storeSettings] = await Promise.all([
         fetchCategories(),
         fetchProducts({ status: 'all' }),
         fetchEnquiries(),
+        fetchStoreSettings(),
       ]);
       setCategories(cats);
       setProducts(prods);
       setEnquiries(enqs);
+      setWhatsAppEnabled(storeSettings.whatsapp_enabled);
+      setWhatsAppNumber(storeSettings.whatsapp_number);
+      setHeroImageType(storeSettings.hero_image_type || 'logo');
+      setHeroProductId(storeSettings.hero_product_id || (prods.length > 0 ? prods[0].id : ''));
+      setHeroCustomImageUrl(storeSettings.hero_custom_image_url || '');
+      setCompanyLogoUrl(storeSettings.company_logo_url || DEFAULT_COMPANY_LOGO);
       if (cats.length > 0 && !prodCategory) {
         setProdCategory(cats[0].id);
       }
@@ -163,6 +191,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleToggleWhatsApp = async (newVal: boolean) => {
+    setWhatsAppEnabled(newVal);
+    try {
+      await updateStoreSettings({ whatsapp_enabled: newVal });
+      showNotification(
+        'success',
+        `WhatsApp ordering is now ${newVal ? 'ENABLED' : 'DISABLED'} on the public website.`
+      );
+    } catch (err: any) {
+      showNotification('error', 'Failed to update WhatsApp channel status.');
+    }
+  };
+
+  const handleHeroCustomImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingHeroImage(true);
+    try {
+      const storagePath = await uploadProductImage(file);
+      const publicUrl = getProductImageUrl(storagePath);
+      setHeroCustomImageUrl(publicUrl);
+      setHeroImageType('custom');
+      showNotification('success', 'Custom hero image uploaded successfully!');
+    } catch (err: any) {
+      console.error('Error uploading custom hero image:', err);
+      showNotification('error', 'Failed to upload hero image.');
+    } finally {
+      setIsUploadingHeroImage(false);
+    }
+  };
+
+  const handleSaveStoreSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanNumber = sanitizePhoneNumber(whatsAppNumber);
+    if (whatsAppEnabled && (!cleanNumber || cleanNumber.length < 10)) {
+      showNotification('error', 'Please enter a valid WhatsApp phone number with country code (e.g. 919876543210).');
+      return;
+    }
+
+    setIsSavingSettings(true);
+    try {
+      await updateStoreSettings({
+        whatsapp_enabled: whatsAppEnabled,
+        whatsapp_number: cleanNumber,
+        hero_image_type: heroImageType,
+        hero_product_id: heroProductId,
+        hero_custom_image_url: heroCustomImageUrl,
+        company_logo_url: companyLogoUrl,
+      });
+      setWhatsAppNumber(cleanNumber);
+      showNotification('success', 'Store and Hero settings saved successfully!');
+    } catch (err: any) {
+      showNotification('error', 'Failed to save store settings.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const showNotification = (type: 'success' | 'error', text: string) => {
     setActionMessage({ type, text });
@@ -514,11 +600,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Brand Lockup */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-transparent flex items-center justify-center p-0.5">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <img
-                src="/assets/aistudio/Glossy_AV_Creations_Mascot_Emblem_e418bb80.png"
+                src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
                 alt="AV Creations"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(231,169,107,0.2)]"
               />
             </div>
             <div>
@@ -578,6 +664,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             },
             { id: 'add-product', label: editingProductId ? 'Edit Product' : 'Add Product', icon: PlusCircle },
             { id: 'add-category', label: 'Add Category', icon: PlusCircle },
+            {
+              id: 'settings',
+              label: 'WhatsApp & Channels',
+              icon: Phone,
+              badge: whatsAppEnabled ? 'Active' : 'Disabled',
+            },
             { id: 'database', label: 'Supabase SQL Setup', icon: Database },
             { id: 'guide', label: 'Admin & Setup Guide', icon: BookOpen },
           ].map((item) => {
@@ -755,6 +847,104 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <PlusCircle className="w-3.5 h-3.5 text-[#E7A96B]" />
                     <span>New Category</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Store Ordering Channels & WhatsApp Live Status */}
+              <div className="bg-[#141416] border border-[#222226] p-5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                      whatsAppEnabled
+                        ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400'
+                        : 'bg-zinc-800/80 border-zinc-700/50 text-zinc-400'
+                    }`}
+                  >
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="text-sm font-bold text-[#F5F3EF]">
+                        WhatsApp Ordering Channel
+                      </h4>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                          whatsAppEnabled
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                        }`}
+                      >
+                        {whatsAppEnabled ? 'Live on Website' : 'Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
+                      {whatsAppEnabled ? (
+                        <>
+                          Customer orders in cart drawer route to WhatsApp number{' '}
+                          <span className="font-mono text-[#E7A96B] font-semibold">
+                            +{whatsAppNumber || 'Not Configured'}
+                          </span>
+                          .
+                        </>
+                      ) : (
+                        'WhatsApp button is hidden from public cart drawer. Orders route exclusively via Instagram.'
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+                  <button
+                    onClick={() => handleToggleWhatsApp(!whatsAppEnabled)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border ${
+                      whatsAppEnabled
+                        ? 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-600'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-sm'
+                    }`}
+                  >
+                    {whatsAppEnabled ? 'Disable WhatsApp' : 'Enable WhatsApp'}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium text-[#E7A96B] bg-[#1E1E22] hover:bg-[#28282E] border border-[#2D2D32] transition-colors cursor-pointer"
+                  >
+                    Edit Number & Settings
+                  </button>
+                </div>
+              </div>
+
+              {/* Homepage Hero Showcase Visual Status */}
+              <div className="bg-[#141416] border border-[#222226] p-5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#E7A96B]/15 border border-[#E7A96B]/30 text-[#E7A96B] flex items-center justify-center shrink-0">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h4 className="text-sm font-bold text-[#F5F3EF]">
+                        Homepage Hero Showcase Image
+                      </h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-[#E7A96B]/20 text-[#E7A96B] border border-[#E7A96B]/30">
+                        {heroImageType === 'logo' ? 'Company Logo (Default)' : heroImageType === 'product' ? 'Product Showcase' : 'Custom Image'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
+                      {heroImageType === 'logo'
+                        ? 'Displaying the official AV Creations 3D printer emblem in the hero section.'
+                        : heroImageType === 'product'
+                        ? `Displaying catalogue product: "${products.find((p) => p.id === heroProductId)?.name || 'Featured Product'}"`
+                        : 'Displaying custom uploaded hero visual.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-[#101010] bg-[#E7A96B] hover:bg-[#F2BA82] transition-colors cursor-pointer"
+                  >
+                    Configure Hero Image
                   </button>
                 </div>
               </div>
@@ -1808,6 +1998,371 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* TAB: STORE CHANNELS & WHATSAPP SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <div className="bg-[#141416] border border-[#222226] rounded-xl p-6 space-y-6">
+                <div className="border-b border-[#222226] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-[#F5F3EF]">
+                        Store Settings & Homepage Configuration
+                      </h2>
+                      <p className="text-xs text-[#A1A1AA] mt-0.5">
+                        Choose what image appears in the homepage hero section and manage ordering channels.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveStoreSettings} className="space-y-6">
+                  {/* HERO SHOWCASE IMAGE SELECTION (NEW USER FEATURE) */}
+                  <div className="p-5 bg-[#18181C] border border-[#27272D] rounded-xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#24242A] pb-3">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-[#E7A96B]" />
+                        <h3 className="text-xs font-bold text-[#F5F3EF] uppercase tracking-wider">
+                          Homepage Hero Showcase Visual
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E7A96B]/15 text-[#E7A96B] font-semibold border border-[#E7A96B]/30">
+                        Default: Company Logo
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#A1A1AA] leading-relaxed">
+                      Select which visual appears in the center-right showcase area of the homepage. By default, the official <strong className="text-white">Company Logo</strong> is featured.
+                    </p>
+
+                    {/* 3 Selectable Mode Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                      {/* Option 1: Company Logo (Default) */}
+                      <label
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                          heroImageType === 'logo'
+                            ? 'bg-[#1F1F24] border-[#E7A96B] shadow-md ring-1 ring-[#E7A96B]/50'
+                            : 'bg-[#131315] border-[#26262B] hover:border-[#383840] opacity-80'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#F5F3EF] flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name="hero-image-type"
+                                value="logo"
+                                checked={heroImageType === 'logo'}
+                                onChange={() => setHeroImageType('logo')}
+                                className="accent-[#E7A96B]"
+                              />
+                              <span>Company Logo</span>
+                            </span>
+                            <span className="text-[9px] font-mono font-semibold bg-[#E7A96B]/20 text-[#E7A96B] px-1.5 py-0.5 rounded">
+                              DEFAULT
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
+                            Displays the official AV Creations 3D printer emblem with ambient studio lighting.
+                          </p>
+                        </div>
+
+                        <div className="mt-3 p-2 bg-[#0E0E10] border border-[#26262B] rounded-lg flex items-center justify-center h-16 relative">
+                          <img
+                            src={companyLogoUrl || DEFAULT_COMPANY_LOGO}
+                            alt="Company Logo Preview"
+                            className="max-h-12 w-auto object-contain drop-shadow-sm"
+                          />
+                        </div>
+                      </label>
+
+                      {/* Option 2: Featured Product from Catalogue */}
+                      <label
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                          heroImageType === 'product'
+                            ? 'bg-[#1F1F24] border-[#E7A96B] shadow-md ring-1 ring-[#E7A96B]/50'
+                            : 'bg-[#131315] border-[#26262B] hover:border-[#383840] opacity-80'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#F5F3EF] flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name="hero-image-type"
+                                value="product"
+                                checked={heroImageType === 'product'}
+                                onChange={() => setHeroImageType('product')}
+                                className="accent-[#E7A96B]"
+                              />
+                              <span>Catalogue Product</span>
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
+                            Showcases a specific 3D creation render with dynamic title and pricing.
+                          </p>
+                        </div>
+
+                        <div className="mt-3 space-y-1.5">
+                          <select
+                            value={heroProductId}
+                            onChange={(e) => {
+                              setHeroProductId(e.target.value);
+                              setHeroImageType('product');
+                            }}
+                            className="w-full bg-[#111113] border border-[#2D2D32] rounded p-1.5 text-xs text-[#F5F3EF] focus:outline-none focus:border-[#E7A96B]"
+                          >
+                            {products.length === 0 ? (
+                              <option value="">No products yet</option>
+                            ) : (
+                              products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} {p.price ? `(${formatPriceINR(p.price)})` : ''}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      </label>
+
+                      {/* Option 3: Custom Uploaded Hero Image */}
+                      <label
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all ${
+                          heroImageType === 'custom'
+                            ? 'bg-[#1F1F24] border-[#E7A96B] shadow-md ring-1 ring-[#E7A96B]/50'
+                            : 'bg-[#131315] border-[#26262B] hover:border-[#383840] opacity-80'
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#F5F3EF] flex items-center gap-1.5">
+                              <input
+                                type="radio"
+                                name="hero-image-type"
+                                value="custom"
+                                checked={heroImageType === 'custom'}
+                                onChange={() => setHeroImageType('custom')}
+                                className="accent-[#E7A96B]"
+                              />
+                              <span>Custom Image</span>
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
+                            Upload a bespoke studio photo or banner from your device.
+                          </p>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          <input
+                            type="file"
+                            ref={heroImageInputRef}
+                            onChange={handleHeroCustomImageUpload}
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => heroImageInputRef.current?.click()}
+                            disabled={isUploadingHeroImage}
+                            className="w-full py-1.5 px-2 bg-[#25252A] hover:bg-[#2F2F36] text-[#F5F3EF] rounded text-[11px] font-medium border border-[#34343C] flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Upload className="w-3 h-3 text-[#E7A96B]" />
+                            <span>{isUploadingHeroImage ? 'Uploading...' : 'Choose File'}</span>
+                          </button>
+                          {heroCustomImageUrl && (
+                            <div className="h-12 w-full rounded overflow-hidden bg-black/40 border border-[#2B2B30]">
+                              <img
+                                src={heroCustomImageUrl}
+                                alt="Custom Hero"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Live Preview of Selected Hero Image */}
+                    <div className="p-3 bg-[#101012] border border-[#242428] rounded-lg flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-mono text-[#71717A]">Active Hero Mode:</span>
+                        <span className="text-xs font-bold text-[#E7A96B] font-mono uppercase">
+                          {heroImageType === 'logo' ? 'Company Logo (Default)' : heroImageType === 'product' ? 'Catalogue Product' : 'Custom Image'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#A1A1AA]">
+                        Updates homepage in real time upon saving
+                      </span>
+                    </div>
+                  </div>
+                  {/* WhatsApp Enable / Disable Toggle Switch */}
+                  <div className="p-4 bg-[#18181C] border border-[#27272D] rounded-xl flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#F5F3EF]">
+                          WhatsApp Ordering Option
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                            whatsAppEnabled
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                          }`}
+                        >
+                          {whatsAppEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#A1A1AA] leading-relaxed max-w-xl">
+                        When enabled, visitors will see the <strong className="text-emerald-400 font-semibold">"Order via WhatsApp"</strong> button in the cart drawer. If disabled, WhatsApp ordering is completely hidden and all orders will be directed through <strong className="text-[#E7A96B] font-semibold">Instagram DM</strong>.
+                      </p>
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleWhatsApp(!whatsAppEnabled)}
+                      className={`relative inline-flex h-7 w-13 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#E7A96B] ${
+                        whatsAppEnabled ? 'bg-emerald-600' : 'bg-zinc-700'
+                      }`}
+                      role="switch"
+                      aria-checked={whatsAppEnabled}
+                      aria-label="Toggle WhatsApp ordering"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          whatsAppEnabled ? 'translate-x-6' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Business WhatsApp Number Input */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-[#F5F3EF]">
+                      Studio WhatsApp Business Phone Number *
+                    </label>
+                    <div className="relative max-w-md">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#71717A] text-xs font-mono">
+                        +
+                      </div>
+                      <input
+                        type="text"
+                        value={whatsAppNumber}
+                        onChange={(e) => setWhatsAppNumber(e.target.value)}
+                        placeholder="e.g. 919876543210"
+                        className="w-full bg-[#1A1A1E] border border-[#2D2D32] rounded-lg pl-7 pr-4 py-2.5 text-xs text-[#F5F3EF] placeholder-[#555] focus:outline-none focus:border-[#E7A96B] font-mono"
+                      />
+                    </div>
+                    <p className="text-[11px] text-[#8E8E93] leading-relaxed max-w-xl">
+                      Enter the international number with country code (e.g. <span className="font-mono text-[#E7A96B]">919876543210</span> for India, <span className="font-mono text-[#E7A96B]">12025550143</span> for US). Non-digit characters will be automatically stripped.
+                    </p>
+
+                    {/* Live WhatsApp Chat Test Link */}
+                    {whatsAppNumber && sanitizePhoneNumber(whatsAppNumber).length >= 10 && (
+                      <div className="pt-1 flex items-center gap-2">
+                        <a
+                          href={`https://wa.me/${sanitizePhoneNumber(whatsAppNumber)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-medium bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Test WhatsApp Link (wa.me/{sanitizePhoneNumber(whatsAppNumber)})</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="pt-2 border-t border-[#222226] flex items-center gap-3">
+                    <button
+                      type="submit"
+                      disabled={isSavingSettings}
+                      className="px-5 py-2.5 bg-[#E7A96B] hover:bg-[#F2BA82] disabled:opacity-50 text-[#101010] font-bold text-xs uppercase tracking-wider rounded-lg transition-all shadow-md cursor-pointer flex items-center gap-2"
+                    >
+                      {isSavingSettings ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving Settings...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Channel Settings</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-xs text-[#71717A]">
+                      Applies immediately across all client browsers and cart drawers.
+                    </span>
+                  </div>
+                </form>
+              </div>
+
+              {/* Instagram Channel Details & Cart Preview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Instagram Channel Card */}
+                <div className="bg-[#141416] border border-[#222226] rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#F5F3EF]">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#833AB4] via-[#FD1D1D] to-[#F77737] flex items-center justify-center text-white">
+                        <Instagram className="w-3.5 h-3.5" />
+                      </div>
+                      <span>Instagram Direct Channel</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] leading-relaxed">
+                    Customer orders can also be placed through Instagram DM. When a customer clicks "Order via Instagram", full itemized order details and subtotal are automatically copied to their clipboard and their DM chat with <strong className="text-white">@{INSTAGRAM_USERNAME}</strong> opens.
+                  </p>
+                  <div className="pt-1">
+                    <a
+                      href={INSTAGRAM_PROFILE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#E7A96B] hover:text-[#F0B87E] transition-colors"
+                    >
+                      <span>View @{INSTAGRAM_USERNAME} on Instagram</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Live Cart Appearance Preview */}
+                <div className="bg-[#141416] border border-[#222226] rounded-xl p-5 space-y-3">
+                  <span className="text-xs font-bold text-[#F5F3EF] block">
+                    Public Cart Drawer Preview
+                  </span>
+                  <p className="text-xs text-[#A1A1AA] leading-relaxed">
+                    This is how order buttons appear to customers based on your current settings:
+                  </p>
+                  <div className="p-3 bg-[#101012] border border-[#26262B] rounded-xl space-y-2 select-none">
+                    {whatsAppEnabled ? (
+                      <div className="w-full py-2 px-3 bg-emerald-600 text-white font-bold text-[11px] rounded-lg flex items-center justify-center gap-2 shadow-sm">
+                        <Phone className="w-3.5 h-3.5 fill-current" />
+                        <span>Order via WhatsApp (Active: +{whatsAppNumber || '91...'})</span>
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-red-950/30 border border-red-500/30 text-red-300 text-[10px] rounded text-center">
+                        WhatsApp button is hidden from customer view
+                      </div>
+                    )}
+
+                    <div className="w-full py-2 px-3 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-bold text-[11px] rounded-lg flex items-center justify-center gap-2 shadow-sm">
+                      <Instagram className="w-3.5 h-3.5" />
+                      <span>Order via Instagram (@{INSTAGRAM_USERNAME})</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

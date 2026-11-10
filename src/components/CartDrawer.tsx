@@ -17,8 +17,14 @@ import {
 } from 'lucide-react';
 import { CartItem, ProductItem } from '../types';
 import { PrintArtwork } from './3d-visuals/PrintArtwork';
-import { formatPriceINR, WHATSAPP_BUSINESS_NUMBER, isWhatsAppConfigured, INSTAGRAM_USERNAME } from '../lib/config';
+import { formatPriceINR, INSTAGRAM_USERNAME } from '../lib/config';
 import { validateCartForWhatsApp, getWhatsAppOrderUrl } from '../utils/whatsappOrder';
+import {
+  StoreSettings,
+  getStoredWhatsAppSettings,
+  fetchStoreSettings,
+  SETTINGS_CHANGE_EVENT,
+} from '../services/settingsService';
 import {
   validateCartForInstagram,
   generateInstagramOrderMessage,
@@ -51,6 +57,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [showManualModal, setShowManualModal] = useState(false);
   const [instagramOrderSummary, setInstagramOrderSummary] = useState('');
   const [manualCopied, setManualCopied] = useState(false);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => getStoredWhatsAppSettings());
+
+  // Listen to store settings updates in real time
+  useEffect(() => {
+    const handleSettingsUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<StoreSettings>;
+      if (customEvent.detail) {
+        setStoreSettings(customEvent.detail);
+      } else {
+        setStoreSettings(getStoredWhatsAppSettings());
+      }
+    };
+
+    window.addEventListener(SETTINGS_CHANGE_EVENT, handleSettingsUpdate);
+    // Fetch latest from Supabase if available
+    fetchStoreSettings().then((fresh) => {
+      setStoreSettings(fresh);
+    });
+
+    return () => {
+      window.removeEventListener(SETTINGS_CHANGE_EVENT, handleSettingsUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,7 +108,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   // Validation
-  const validation = validateCartForWhatsApp(items);
+  const validation = validateCartForWhatsApp(items, {
+    isEnabled: storeSettings.whatsapp_enabled,
+    number: storeSettings.whatsapp_number,
+  });
 
   // Subtotal calculation (priced items only)
   const subtotal = items.reduce((acc, item) => {
@@ -90,8 +122,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const totalItemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   const handleWhatsAppOrder = () => {
-    if (items.length === 0) return;
-    const result = getWhatsAppOrderUrl(items);
+    if (items.length === 0 || !storeSettings.whatsapp_enabled) return;
+    const result = getWhatsAppOrderUrl(items, storeSettings.whatsapp_number);
     if (!result.url) {
       alert(result.error || 'Unable to generate WhatsApp order message.');
       return;
@@ -237,7 +269,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   Your cart is empty
                 </p>
                 <p className="text-xs text-[#A1A1AA] max-w-xs mx-auto leading-relaxed">
-                  Browse our handcrafted additive manufacturing designs and add items to easily order directly via WhatsApp.
+                  Browse our handcrafted additive manufacturing designs and add items to easily order directly via {storeSettings.whatsapp_enabled ? 'WhatsApp or Instagram' : 'Instagram'}.
                 </p>
               </div>
               <button
@@ -378,7 +410,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
               <div className="flex justify-between text-[#71717A] text-[11px]">
                 <span>Fulfillment & Packaging</span>
-                <span className="text-[#E7A96B]">Confirmed via WhatsApp / Instagram</span>
+                <span className="text-[#E7A96B]">
+                  Confirmed via {storeSettings.whatsapp_enabled ? 'WhatsApp / Instagram' : 'Instagram'}
+                </span>
               </div>
               <div className="pt-2 border-t border-[#26262B] flex justify-between items-baseline">
                 <div>
@@ -393,18 +427,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             {/* Order Action Buttons: WhatsApp & Instagram */}
             <div className="space-y-2.5">
-              <button
-                onClick={handleWhatsAppOrder}
-                disabled={!validation.isValid}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-[#222226] disabled:text-[#666] disabled:cursor-not-allowed text-[#FFFFFF] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.99]"
-              >
-                <Phone className="w-4 h-4 fill-current" />
-                <span>Order via WhatsApp</span>
-              </button>
+              {storeSettings.whatsapp_enabled && (
+                <button
+                  onClick={handleWhatsAppOrder}
+                  disabled={!validation.isValid}
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-[#222226] disabled:text-[#666] disabled:cursor-not-allowed text-[#FFFFFF] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.99]"
+                >
+                  <Phone className="w-4 h-4 fill-current" />
+                  <span>Order via WhatsApp</span>
+                </button>
+              )}
 
               <button
                 onClick={handleInstagramOrder}
-                disabled={!validation.isValid}
+                disabled={items.length === 0}
                 className="w-full py-3.5 px-4 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-[#FFFFFF] font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.99]"
               >
                 <Instagram className="w-4 h-4" />
@@ -412,7 +448,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </button>
 
               <p className="text-[11px] text-[#71717A] text-center leading-relaxed">
-                Choose WhatsApp or Instagram to send your prefilled order items directly to the studio. No online payment charged now — we confirm availability, finish options, and dispatch.
+                {storeSettings.whatsapp_enabled
+                  ? 'Choose WhatsApp or Instagram to send your prefilled order items directly to the studio. No online payment charged now — we confirm availability, finish options, and dispatch.'
+                  : `Send your prefilled order items directly to our Instagram (@${INSTAGRAM_USERNAME}). No online payment charged now — we confirm availability, finish options, and dispatch.`}
               </p>
             </div>
 

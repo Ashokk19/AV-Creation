@@ -33,6 +33,11 @@ import {
   Images,
   Image as ImageIcon,
   Instagram,
+  Sliders,
+  Frame,
+  RotateCcw,
+  Crop,
+  Crosshair,
 } from 'lucide-react';
 import { CategoryRecord, ProductRecord, CustomerEnquiry } from '../../types';
 import {
@@ -65,11 +70,18 @@ import {
   StoreSettings,
   HeroImageType,
   DEFAULT_COMPANY_LOGO,
+  HeroFrameSettings,
+  DEFAULT_HERO_FRAME_SETTINGS,
+  HeroFrameStyle,
+  HeroFrameFit,
+  HeroFrameAspectRatio,
+  HeroFrameBackdrop,
   getStoredWhatsAppSettings,
   fetchStoreSettings,
   updateStoreSettings,
   sanitizePhoneNumber,
 } from '../../services/settingsService';
+import { HeroFrame } from '../HeroFrame';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -152,6 +164,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [heroProductId, setHeroProductId] = useState('');
   const [heroCustomImageUrl, setHeroCustomImageUrl] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState(DEFAULT_COMPANY_LOGO);
+  const [heroFrame, setHeroFrame] = useState<HeroFrameSettings>(DEFAULT_HERO_FRAME_SETTINGS);
+  const [samplePreviewRatio, setSamplePreviewRatio] = useState<'current' | 'portrait' | 'square' | 'landscape'>('current');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
@@ -177,6 +191,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setHeroProductId(storeSettings.hero_product_id || (prods.length > 0 ? prods[0].id : ''));
       setHeroCustomImageUrl(storeSettings.hero_custom_image_url || '');
       setCompanyLogoUrl(storeSettings.company_logo_url || DEFAULT_COMPANY_LOGO);
+      setHeroFrame(storeSettings.hero_frame || DEFAULT_HERO_FRAME_SETTINGS);
       if (cats.length > 0 && !prodCategory) {
         setProdCategory(cats[0].id);
       }
@@ -240,6 +255,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         hero_product_id: heroProductId,
         hero_custom_image_url: heroCustomImageUrl,
         company_logo_url: companyLogoUrl,
+        hero_frame: heroFrame,
       });
       setWhatsAppNumber(cleanNumber);
       showNotification('success', 'Store and Hero settings saved successfully!');
@@ -2200,6 +2216,565 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </span>
                     </div>
                   </div>
+
+                  {/* HERO IMAGE FRAME SETTINGS BLOCK (NEW FEATURE) */}
+                  <div className="p-5 bg-[#18181C] border border-[#27272D] rounded-xl space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#24242A] pb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#E7A96B]/15 border border-[#E7A96B]/30 flex items-center justify-center text-[#E7A96B]">
+                          <Frame className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-[#F5F3EF] uppercase tracking-wider flex items-center gap-2">
+                            <span>Hero Image Frame</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E7A96B]/20 text-[#E7A96B] font-semibold border border-[#E7A96B]/30">
+                              Default: Framed Card
+                            </span>
+                          </h3>
+                          <p className="text-xs text-[#A1A1AA] mt-0.5">
+                            Control how the hero visual is framed on the homepage. Works seamlessly for any aspect ratio and background.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setHeroFrame({ ...DEFAULT_HERO_FRAME_SETTINGS })}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-[#A1A1AA] hover:text-[#E7A96B] bg-[#141416] hover:bg-[#1C1C20] border border-[#2E2E34] hover:border-[#E7A96B]/40 rounded-md transition-all cursor-pointer self-start sm:self-auto shrink-0"
+                        title="Restore default frame values"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset to Defaults</span>
+                      </button>
+                    </div>
+
+                    {/* Split Layout: Left Controls (A-F) & Right Sticky Live Preview (G) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                      {/* Left Column: Frame Controls */}
+                      <div className="lg:col-span-7 space-y-6">
+                        {/* A. FRAME STYLE (Radio cards with visual thumbnails) */}
+                        <div className="space-y-2.5">
+                          <label className="block text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                            A. Frame Style
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            {[
+                              {
+                                id: 'card' as HeroFrameStyle,
+                                name: 'Framed Card',
+                                desc: 'Default · Contained image with blurred backdrop & border',
+                                preview: (
+                                  <div className="w-full h-12 rounded bg-[#17171a] border border-[#2a2a2f] flex items-center justify-center p-1.5 relative overflow-hidden shadow-inner">
+                                    <div className="absolute inset-0 bg-[#E7A96B]/15 blur-sm" />
+                                    <div className="relative z-10 w-6 h-6 rounded-sm bg-[#222228] border border-[#E7A96B]/40 flex items-center justify-center text-[8px] text-[#E7A96B] font-mono">
+                                      IMG
+                                    </div>
+                                  </div>
+                                ),
+                              },
+                              {
+                                id: 'bleed' as HeroFrameStyle,
+                                name: 'Full Bleed',
+                                desc: 'Edge-to-edge fill with left & bottom gradient fade',
+                                preview: (
+                                  <div className="w-full h-12 rounded bg-gradient-to-r from-black via-zinc-800 to-zinc-700 flex items-center justify-end p-1.5 relative overflow-hidden">
+                                    <div className="w-8 h-8 rounded-sm bg-zinc-600/80 flex items-center justify-center text-[8px] text-zinc-300 font-mono">
+                                      FILL
+                                    </div>
+                                  </div>
+                                ),
+                              },
+                              {
+                                id: 'floating' as HeroFrameStyle,
+                                name: 'Floating',
+                                desc: 'Borderless floating image with soft ambient shadow',
+                                preview: (
+                                  <div className="w-full h-12 rounded bg-[#101012] flex items-center justify-center p-1.5 relative">
+                                    <div className="w-8 h-8 rounded bg-[#1E1E24] shadow-[0_4px_12px_rgba(0,0,0,0.9)] border border-white/5 flex items-center justify-center text-[8px] text-white font-mono">
+                                      DROP
+                                    </div>
+                                  </div>
+                                ),
+                              },
+                              {
+                                id: 'polaroid' as HeroFrameStyle,
+                                name: 'Polaroid',
+                                desc: 'Gallery matte border with bottom caption strip',
+                                preview: (
+                                  <div className="w-full h-12 rounded bg-[#F4F3EF] flex flex-col items-center justify-between p-1 text-[#141416]">
+                                    <div className="w-full h-7 bg-[#141416] rounded-sm flex items-center justify-center text-[7px] text-zinc-400 font-mono">
+                                      PHOTO
+                                    </div>
+                                    <div className="w-6 h-1 bg-zinc-300 rounded-full" />
+                                  </div>
+                                ),
+                              },
+                            ].map((styleOption) => {
+                              const isSelected = heroFrame.style === styleOption.id;
+                              return (
+                                <button
+                                  key={styleOption.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setHeroFrame((prev) => ({ ...prev, style: styleOption.id }))
+                                  }
+                                  className={`p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-[#1F1F26] border-[#E7A96B] ring-1 ring-[#E7A96B]/50'
+                                      : 'bg-[#131316] border-[#26262B] hover:border-[#383842] opacity-80'
+                                  }`}
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <span
+                                        className={`text-xs font-bold ${
+                                          isSelected ? 'text-[#E7A96B]' : 'text-[#F5F3EF]'
+                                        }`}
+                                      >
+                                        {styleOption.name}
+                                      </span>
+                                      <input
+                                        type="radio"
+                                        checked={isSelected}
+                                        onChange={() => {}}
+                                        className="accent-[#E7A96B] pointer-events-none"
+                                      />
+                                    </div>
+                                    <p className="text-[10px] text-[#A1A1AA] leading-snug line-clamp-2">
+                                      {styleOption.desc}
+                                    </p>
+                                  </div>
+                                  <div className="mt-2">{styleOption.preview}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* B. IMAGE FIT (Segmented Buttons) & FOCAL POINT PICKER */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                              B. Image Fit
+                            </label>
+                            <span className="text-[10px] font-mono text-[#A1A1AA]">
+                              {heroFrame.fit === 'contain'
+                                ? 'Shows entire image without cropping'
+                                : heroFrame.fit === 'cover'
+                                ? 'Fills frame; adjust focal center below'
+                                : 'Auto: Contain for logo, cover for banners'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 bg-[#121214] p-1 rounded-lg border border-[#242428]">
+                            {(['contain', 'cover', 'auto'] as HeroFrameFit[]).map((fitMode) => {
+                              const active = heroFrame.fit === fitMode;
+                              return (
+                                <button
+                                  key={fitMode}
+                                  type="button"
+                                  onClick={() =>
+                                    setHeroFrame((prev) => ({ ...prev, fit: fitMode }))
+                                  }
+                                  className={`py-2 px-3 text-xs font-mono font-semibold rounded-md transition-all cursor-pointer ${
+                                    active
+                                      ? 'bg-[#E7A96B] text-[#101010] shadow-sm'
+                                      : 'text-[#A1A1AA] hover:text-[#F5F3EF] hover:bg-[#1A1A1E]'
+                                  }`}
+                                >
+                                  {fitMode === 'contain'
+                                    ? 'Contain (Default)'
+                                    : fitMode === 'cover'
+                                    ? 'Cover'
+                                    : 'Auto'}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Focal Point Indicator & Sliders when Cover is active */}
+                          {heroFrame.fit === 'cover' && (
+                            <div className="p-3 bg-[#131316] border border-[#2A2A32] rounded-lg space-y-2.5 animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between text-xs font-mono">
+                                <span className="text-[#E7A96B] font-semibold flex items-center gap-1.5">
+                                  <Crosshair className="w-3.5 h-3.5" />
+                                  <span>Focal Point Position:</span>
+                                </span>
+                                <span className="text-[#F5F3EF] bg-[#1E1E24] px-2 py-0.5 rounded border border-[#2E2E36]">
+                                  X: {heroFrame.focalPoint?.x ?? 50}% · Y: {heroFrame.focalPoint?.y ?? 50}%
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[#A1A1AA]">
+                                Click directly on the <strong className="text-white">Live Preview image</strong> to place the focal reticle, or fine-tune with the sliders below:
+                              </p>
+
+                              <div className="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                  <div className="flex justify-between text-[10px] font-mono text-[#71717A] mb-1">
+                                    <span>Horizontal (X)</span>
+                                    <span>{heroFrame.focalPoint?.x ?? 50}%</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={heroFrame.focalPoint?.x ?? 50}
+                                    onChange={(e) =>
+                                      setHeroFrame((prev) => ({
+                                        ...prev,
+                                        focalPoint: {
+                                          ...prev.focalPoint,
+                                          x: Number(e.target.value),
+                                        },
+                                      }))
+                                    }
+                                    className="w-full accent-[#E7A96B]"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-[10px] font-mono text-[#71717A] mb-1">
+                                    <span>Vertical (Y)</span>
+                                    <span>{heroFrame.focalPoint?.y ?? 50}%</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={heroFrame.focalPoint?.y ?? 50}
+                                    onChange={(e) =>
+                                      setHeroFrame((prev) => ({
+                                        ...prev,
+                                        focalPoint: {
+                                          ...prev.focalPoint,
+                                          y: Number(e.target.value),
+                                        },
+                                      }))
+                                    }
+                                    className="w-full accent-[#E7A96B]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* C. ASPECT RATIO (Segmented Buttons) */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                              C. Aspect Ratio
+                            </label>
+                            <span className="text-[10px] font-mono text-[#A1A1AA]">
+                              Fixed frame geometry prevents layout shifts
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-5 gap-1.5 bg-[#121214] p-1 rounded-lg border border-[#242428]">
+                            {(['4/5', '1/1', '3/4', '16/9', 'auto'] as HeroFrameAspectRatio[]).map(
+                              (ratio) => {
+                                const active = heroFrame.aspectRatio === ratio;
+                                return (
+                                  <button
+                                    key={ratio}
+                                    type="button"
+                                    onClick={() =>
+                                      setHeroFrame((prev) => ({ ...prev, aspectRatio: ratio }))
+                                    }
+                                    className={`py-2 px-1 text-xs font-mono font-semibold rounded-md transition-all cursor-pointer ${
+                                      active
+                                        ? 'bg-[#E7A96B] text-[#101010] shadow-sm'
+                                        : 'text-[#A1A1AA] hover:text-[#F5F3EF] hover:bg-[#1A1A1E]'
+                                    }`}
+                                  >
+                                    {ratio === '4/5' ? '4:5 (Def)' : ratio === 'auto' ? 'Auto' : ratio.replace('/', ':')}
+                                  </button>
+                                );
+                              }
+                            )}
+                          </div>
+                        </div>
+
+                        {/* D. BACKDROP (Segmented Buttons) */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                              D. Backdrop
+                            </label>
+                            <span className="text-[10px] font-mono text-[#A1A1AA]">
+                              Under-layer visual atmosphere
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#121214] p-1 rounded-lg border border-[#242428]">
+                            {(
+                              [
+                                { id: 'blur', label: 'Blurred (Def)' },
+                                { id: 'solid', label: 'Solid Dark' },
+                                { id: 'glow', label: 'Amber Glow' },
+                                { id: 'transparent', label: 'Transparent' },
+                              ] as { id: HeroFrameBackdrop; label: string }[]
+                            ).map((b) => {
+                              const active = heroFrame.backdrop === b.id;
+                              return (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setHeroFrame((prev) => ({ ...prev, backdrop: b.id }))
+                                  }
+                                  className={`py-2 px-2 text-xs font-mono font-semibold rounded-md transition-all cursor-pointer ${
+                                    active
+                                      ? 'bg-[#E7A96B] text-[#101010] shadow-sm'
+                                      : 'text-[#A1A1AA] hover:text-[#F5F3EF] hover:bg-[#1A1A1E]'
+                                  }`}
+                                >
+                                  {b.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* E. TOGGLES (Corner brackets, Info tag, Drop shadow) */}
+                        <div className="space-y-2.5">
+                          <label className="block text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                            E. Visual Accents & Elements
+                          </label>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {/* Toggle 1: Corner brackets */}
+                            <label className="p-3 bg-[#131316] border border-[#26262C] rounded-lg flex items-center justify-between cursor-pointer hover:border-[#383840] transition-colors">
+                              <span className="text-xs text-[#F5F3EF] font-medium">Corner Brackets</span>
+                              <input
+                                type="checkbox"
+                                checked={heroFrame.cornerBrackets}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, cornerBrackets: e.target.checked }))
+                                }
+                                className="w-4 h-4 accent-[#E7A96B] rounded cursor-pointer"
+                              />
+                            </label>
+
+                            {/* Toggle 2: Glass Info Tag */}
+                            <label className="p-3 bg-[#131316] border border-[#26262C] rounded-lg flex items-center justify-between cursor-pointer hover:border-[#383840] transition-colors">
+                              <span className="text-xs text-[#F5F3EF] font-medium">Glass Info Tag</span>
+                              <input
+                                type="checkbox"
+                                checked={heroFrame.infoTag}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, infoTag: e.target.checked }))
+                                }
+                                className="w-4 h-4 accent-[#E7A96B] rounded cursor-pointer"
+                              />
+                            </label>
+
+                            {/* Toggle 3: Drop Shadow */}
+                            <label className="p-3 bg-[#131316] border border-[#26262C] rounded-lg flex items-center justify-between cursor-pointer hover:border-[#383840] transition-colors">
+                              <span className="text-xs text-[#F5F3EF] font-medium">Deep Drop Shadow</span>
+                              <input
+                                type="checkbox"
+                                checked={heroFrame.shadow}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, shadow: e.target.checked }))
+                                }
+                                className="w-4 h-4 accent-[#E7A96B] rounded cursor-pointer"
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* F. SLIDERS (Corner radius, Inner padding, Blur strength) */}
+                        <div className="space-y-4 pt-1">
+                          <label className="block text-xs font-mono font-semibold text-[#F5F3EF] uppercase tracking-wider">
+                            F. Precision Dimension Sliders
+                          </label>
+
+                          <div className="space-y-3.5 bg-[#131316] p-4 rounded-xl border border-[#26262C]">
+                            {/* Slider 1: Corner Radius */}
+                            <div>
+                              <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                <span className="text-[#A1A1AA]">Corner Radius (0–40px)</span>
+                                <span className="text-[#E7A96B] font-bold">{heroFrame.radius}px</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="40"
+                                value={heroFrame.radius}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, radius: Number(e.target.value) }))
+                                }
+                                className="w-full accent-[#E7A96B] cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Slider 2: Inner Padding */}
+                            <div>
+                              <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                <span className="text-[#A1A1AA]">Image Padding Inside Frame (0–60px)</span>
+                                <span className="text-[#E7A96B] font-bold">{heroFrame.padding}px</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="60"
+                                value={heroFrame.padding}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, padding: Number(e.target.value) }))
+                                }
+                                className="w-full accent-[#E7A96B] cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Slider 3: Blur Strength */}
+                            <div className={heroFrame.backdrop !== 'blur' ? 'opacity-40 pointer-events-none' : ''}>
+                              <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                                <span className="text-[#A1A1AA]">
+                                  Backdrop Blur Strength (0–60px)
+                                  {heroFrame.backdrop !== 'blur' && ' (Only for blurred backdrop)'}
+                                </span>
+                                <span className="text-[#E7A96B] font-bold">{heroFrame.blur}px</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="60"
+                                disabled={heroFrame.backdrop !== 'blur'}
+                                value={heroFrame.blur}
+                                onChange={(e) =>
+                                  setHeroFrame((prev) => ({ ...prev, blur: Number(e.target.value) }))
+                                }
+                                className="w-full accent-[#E7A96B] cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Sticky Live Preview Box (G) */}
+                      <div className="lg:col-span-5 sticky top-24 space-y-3">
+                        <div className="bg-[#121215] border border-[#282830] rounded-xl p-4 shadow-2xl space-y-3.5">
+                          <div className="flex items-center justify-between border-b border-[#222228] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-[#E7A96B] animate-pulse" />
+                              <h4 className="text-xs font-mono font-bold text-[#F5F3EF] uppercase tracking-wider">
+                                Live Frame Preview
+                              </h4>
+                            </div>
+                            <span className="text-[10px] font-mono text-[#71717A]">
+                              Instant Reaction
+                            </span>
+                          </div>
+
+                          {/* Test with Sample Ratios Switcher */}
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-mono text-[#A1A1AA]">
+                              Test with sample photos:
+                            </span>
+                            <div className="grid grid-cols-4 gap-1 bg-[#0A0A0C] p-1 rounded-lg border border-[#202026]">
+                              {[
+                                { id: 'current', label: 'Selected' },
+                                { id: 'portrait', label: '3:4 Tall' },
+                                { id: 'square', label: '1:1 Sq' },
+                                { id: 'landscape', label: '16:9 Wide' },
+                              ].map((btn) => (
+                                <button
+                                  key={btn.id}
+                                  type="button"
+                                  onClick={() => setSamplePreviewRatio(btn.id as any)}
+                                  className={`py-1.5 px-1 text-[10px] font-mono font-semibold rounded transition-colors cursor-pointer text-center ${
+                                    samplePreviewRatio === btn.id
+                                      ? 'bg-[#E7A96B] text-[#101010]'
+                                      : 'text-[#888] hover:text-[#FFF] hover:bg-[#16161A]'
+                                  }`}
+                                >
+                                  {btn.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Live Frame Render Container */}
+                          {(() => {
+                            let previewImage = '';
+                            let previewTitle = '';
+                            let previewCategory = '';
+                            let previewPrice: number | null = null;
+                            let previewIsLogo = false;
+
+                            if (samplePreviewRatio === 'portrait') {
+                              previewImage =
+                                products.find((p) => (p.image_path || '').includes('Darkrai'))?.image_path ||
+                                products[0]?.image_path ||
+                                '/assets/aistudio/image_68311afd.png';
+                              previewTitle = 'Darkrai Collectible';
+                              previewCategory = 'POKÉMON';
+                              previewPrice = 400;
+                            } else if (samplePreviewRatio === 'square') {
+                              previewImage =
+                                products.find((p) => p.name.toLowerCase().includes('lotus'))?.image_path ||
+                                '/assets/aistudio/image_b0cf66b2.png';
+                              previewTitle = 'Lotus Tea Light';
+                              previewCategory = 'AMBIENT LIGHTING';
+                              previewPrice = 300;
+                            } else if (samplePreviewRatio === 'landscape') {
+                              previewImage = '/assets/aistudio/image_d7f977b2.png';
+                              previewTitle = 'Studio CoreXY Workshop';
+                              previewCategory = 'BESPOKE FABRICATION';
+                              previewPrice = null;
+                            } else {
+                              // current source
+                              if (heroImageType === 'logo') {
+                                previewImage = companyLogoUrl || DEFAULT_COMPANY_LOGO;
+                                previewTitle = 'AV Creations';
+                                previewCategory = '3D STUDIO';
+                                previewIsLogo = true;
+                              } else if (heroImageType === 'custom') {
+                                previewImage = heroCustomImageUrl || DEFAULT_COMPANY_LOGO;
+                                previewTitle = 'Studio Showcase';
+                                previewCategory = 'BESPOKE FABRICATION';
+                              } else {
+                                const prod =
+                                  products.find((p) => p.id === heroProductId) || products[0];
+                                previewImage = prod
+                                  ? getProductImageUrl(prod.image_path) || prod.image_url || prod.image_path
+                                  : DEFAULT_COMPANY_LOGO;
+                                previewTitle = prod?.name || 'Creation';
+                                previewCategory =
+                                  categories.find((c) => c.id === prod?.category_id)?.name ||
+                                  'CREATION';
+                                previewPrice = prod?.price ?? null;
+                              }
+                            }
+
+                            return (
+                              <div className="relative p-2 rounded-lg bg-[#0C0C0E] border border-[#1E1E24] overflow-hidden flex items-center justify-center min-h-[300px]">
+                                <HeroFrame
+                                  image={previewImage}
+                                  title={previewTitle}
+                                  category={previewCategory}
+                                  price={previewPrice}
+                                  options={heroFrame}
+                                  isLogo={previewIsLogo}
+                                  interactiveFocalPoint={heroFrame.fit === 'cover'}
+                                  onFocalPointChange={(point) =>
+                                    setHeroFrame((prev) => ({ ...prev, focalPoint: point }))
+                                  }
+                                />
+                              </div>
+                            );
+                          })()}
+
+                          <div className="text-[11px] font-mono text-[#71717A] text-center pt-1 border-t border-[#1C1C22]">
+                            {heroFrame.fit === 'cover'
+                              ? 'Click anywhere on the preview image above to set focal point.'
+                              : 'Real-time simulation. Click "Save Settings" below to apply to the homepage.'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* WhatsApp Enable / Disable Toggle Switch */}
                   <div className="p-4 bg-[#18181C] border border-[#27272D] rounded-xl flex items-center justify-between gap-4">
                     <div className="space-y-1">

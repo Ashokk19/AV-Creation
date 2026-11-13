@@ -539,6 +539,7 @@ export default function App() {
               product={heroDisplayProduct}
               customImageUrl={storeSettings.hero_custom_image_url}
               companyLogoUrl={storeSettings.company_logo_url}
+              heroFrame={storeSettings.hero_frame}
               onExplore={handleExploreClick}
               onViewProduct={(p) => setSelectedProduct(p)}
               onRequestCustom={() => handlePublicNavigate('custom')}

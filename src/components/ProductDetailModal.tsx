@@ -54,11 +54,30 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Extract all product photos in order
   const galleryImages = getProductImages(product);
   const hasMultipleImages = galleryImages.length > 1;
+  const currentImageUrl = galleryImages[activeImageIndex] || galleryImages[0] || '';
+
+  // Blurred background crossfade state for gallery stage
+  const [bgCurrent, setBgCurrent] = useState<string>(currentImageUrl);
+  const [bgPrevious, setBgPrevious] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentImageUrl && currentImageUrl !== bgCurrent) {
+      setBgPrevious(bgCurrent);
+      setBgCurrent(currentImageUrl);
+      const timer = setTimeout(() => {
+        setBgPrevious(null);
+      }, 400); // 0.4s fade transition
+      return () => clearTimeout(timer);
+    }
+  }, [currentImageUrl, bgCurrent]);
 
   // Reset state when product changes
   useEffect(() => {
     setQuantity(1);
     setActiveImageIndex(0);
+    const initialImg = galleryImages[0] || '';
+    setBgCurrent(initialImg);
+    setBgPrevious(null);
   }, [product?.id]);
 
   // Scroll active thumbnail into view smoothly
@@ -127,7 +146,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     hex: '#E7A96B',
     filamentType: 'PLA+',
   };
-  const currentImageUrl = galleryImages[activeImageIndex] || galleryImages[0] || '';
 
   return (
     <div
@@ -188,16 +206,50 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="lg:col-span-7 space-y-4">
               {/* Main Large Visual Viewport with Swipe & Arrow Controls */}
               <div
-                className="group relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-[#27272A] bg-[#0E0E10] shadow-inner select-none touch-pan-y"
+                className="group relative aspect-[4/3] sm:aspect-[16/11] min-h-[340px] sm:min-h-[440px] max-h-[580px] w-full rounded-lg overflow-hidden border border-[#27272A] bg-[#0E0E10] shadow-inner select-none touch-pan-y"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
               >
+                {/* Blurred, enlarged copy of the currently shown photo filling the whole image stage */}
+                {bgCurrent && (
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                    {bgPrevious && (
+                      <img
+                        src={bgPrevious}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        style={{
+                          filter: 'blur(45px) saturate(1.6) brightness(0.85)',
+                          transform: 'scale(1.2)',
+                        }}
+                      />
+                    )}
+                    <img
+                      key={bgCurrent}
+                      src={bgCurrent}
+                      alt=""
+                      aria-hidden="true"
+                      className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${
+                        bgPrevious ? 'animate-stage-fade' : ''
+                      }`}
+                      style={{
+                        filter: 'blur(45px) saturate(1.6) brightness(0.85)',
+                        transform: 'scale(1.2)',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Sharp original photo centered on top with soft drop shadow */}
                 <PrintArtwork
                   product={product}
                   activeColor={activeColor}
                   angle="primary"
                   overrideImageUrl={currentImageUrl}
-                  className="w-full h-full"
+                  fitMode="contain"
+                  showBackdropBlur={false}
+                  className="w-full h-full relative z-10"
                 />
 
                 {/* Left & Right Gallery Navigation Arrows (Desktop / Tablet) */}
@@ -229,8 +281,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <ChevronRight className="w-5 h-5 -mr-0.5" />
                     </button>
 
-                    {/* Gallery Photo Counter Badge */}
-                    <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded bg-[#101012]/80 border border-[#2D2D32] backdrop-blur-md text-[11px] font-mono text-[#F5F3EF] flex items-center gap-1.5 shadow-md">
+                    {/* Gallery Photo Counter Badge - kept on top of everything (z-30) */}
+                    <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded bg-[#101012]/80 border border-[#2D2D32] backdrop-blur-md text-[11px] font-mono text-[#F5F3EF] flex items-center gap-1.5 shadow-md">
                       <span className="text-[#E7A96B] font-bold">{activeImageIndex + 1}</span>
                       <span className="text-[#71717A]">/</span>
                       <span className="text-[#A1A1AA]">{galleryImages.length}</span>
@@ -270,7 +322,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           <img
                             src={imgUrl}
                             alt={`${product.title} photo ${idx + 1}`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain p-1"
                             loading="lazy"
                           />
 

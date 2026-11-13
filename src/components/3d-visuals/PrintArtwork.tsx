@@ -10,6 +10,8 @@ interface PrintArtworkProps {
   isHovered?: boolean;
   priority?: boolean;
   overrideImageUrl?: string;
+  fitMode?: 'cover' | 'contain';
+  showBackdropBlur?: boolean;
 }
 
 export const PrintArtwork: React.FC<PrintArtworkProps> = ({
@@ -20,6 +22,8 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
   isHovered = false,
   priority = false,
   overrideImageUrl,
+  fitMode = 'cover',
+  showBackdropBlur = false,
 }) => {
   const uniqueId = useId().replace(/:/g, '');
   const [imageError, setImageError] = useState(false);
@@ -351,24 +355,30 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full overflow-hidden bg-gradient-to-b from-[#18181A] to-[#0E0E10] flex items-center justify-center select-none ${className}`}
+      className={`relative w-full h-full overflow-hidden ${
+        fitMode === 'contain' ? 'bg-transparent' : 'bg-gradient-to-b from-[#18181A] to-[#0E0E10]'
+      } flex items-center justify-center select-none ${className}`}
     >
-      {/* Dynamic studio background rim vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-40 mix-blend-screen"
-        style={{
-          background: `radial-gradient(circle at 60% 35%, ${colorHex}33 0%, transparent 65%)`,
-        }}
-      />
+      {/* Dynamic studio background rim vignette - only in cover mode */}
+      {fitMode !== 'contain' && (
+        <>
+          <div
+            className="absolute inset-0 pointer-events-none opacity-40 mix-blend-screen"
+            style={{
+              background: `radial-gradient(circle at 60% 35%, ${colorHex}33 0%, transparent 65%)`,
+            }}
+          />
 
-      {/* Layer Lines Texture Background Grid (Macro 3D printing aesthetic) */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-15"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px)',
-        }}
-      />
+          {/* Layer Lines Texture Background Grid (Macro 3D printing aesthetic) */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-15"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px)',
+            }}
+          />
+        </>
+      )}
 
       {/* Sliced Toolpath Preview Overlay (when angle === 'sliced' or on hover if requested) */}
       {angle === 'sliced' && (
@@ -380,17 +390,52 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
       {/* Real Product Photography or Vector Studio Render */}
       {hasRealImage ? (
         <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
-          <img
-            src={imageUrl}
-            alt={product.title}
-            className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
-              isHovered ? 'scale-105' : 'scale-100'
-            }`}
-            onError={() => setImageError(true)}
-            loading={priority ? 'eager' : 'lazy'}
-          />
-          {/* Subtle bottom shadow vignette for contrast */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#101010]/80 via-transparent to-transparent pointer-events-none" />
+          {fitMode === 'contain' ? (
+            <>
+              {/* Optional standalone blur backdrop if requested directly on component */}
+              {showBackdropBlur && (
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{
+                      filter: 'blur(45px) saturate(1.6) brightness(0.85)',
+                      transform: 'scale(1.2)',
+                    }}
+                  />
+                </div>
+              )}
+              {/* Contained full product image - sharp original photo centered on top with soft drop shadow */}
+              <img
+                src={imageUrl}
+                alt={product.title}
+                className={`relative z-10 w-full h-full object-contain p-2 sm:p-4 transition-transform duration-500 ease-out ${
+                  isHovered ? 'scale-105' : 'scale-100'
+                }`}
+                style={{
+                  filter: 'drop-shadow(0 14px 24px rgba(0,0,0,0.5))',
+                }}
+                onError={() => setImageError(true)}
+                loading={priority ? 'eager' : 'lazy'}
+              />
+            </>
+          ) : (
+            <>
+              <img
+                src={imageUrl}
+                alt={product.title}
+                className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
+                  isHovered ? 'scale-105' : 'scale-100'
+                }`}
+                onError={() => setImageError(true)}
+                loading={priority ? 'eager' : 'lazy'}
+              />
+              {/* Subtle bottom shadow vignette for contrast */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#101010]/80 via-transparent to-transparent pointer-events-none" />
+            </>
+          )}
         </div>
       ) : (
         <svg
@@ -468,10 +513,12 @@ export const PrintArtwork: React.FC<PrintArtworkProps> = ({
         </svg>
       )}
 
-      {/* Macro Studio Watermark / Calibration mark */}
-      <div className="absolute bottom-2 right-3 pointer-events-none text-[9px] uppercase tracking-widest text-[#737373] font-mono opacity-60">
-        AV·{typeof product.specs === 'object' && product.specs?.layerResolution ? `0${product.specs.layerResolution.slice(0, 4)}` : '00.12'}mm
-      </div>
+      {/* Macro Studio Watermark / Calibration mark - only shown in cover mode so it never overlaps fitted products */}
+      {fitMode !== 'contain' && (
+        <div className="absolute bottom-2 right-3 pointer-events-none text-[9px] uppercase tracking-widest text-[#737373] font-mono opacity-60">
+          AV·{typeof product.specs === 'object' && product.specs?.layerResolution ? `0${product.specs.layerResolution.slice(0, 4)}` : '00.12'}mm
+        </div>
+      )}
     </div>
   );
 };

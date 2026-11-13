@@ -5,6 +5,81 @@ export type HeroImageType = 'logo' | 'product' | 'custom';
 
 export const DEFAULT_COMPANY_LOGO = '/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png';
 
+export type HeroFrameStyle = 'card' | 'bleed' | 'floating' | 'polaroid';
+export type HeroFrameFit = 'contain' | 'cover' | 'auto';
+export type HeroFrameAspectRatio = '4/5' | '1/1' | '3/4' | '16/9' | 'auto';
+export type HeroFrameBackdrop = 'blur' | 'solid' | 'glow' | 'transparent';
+
+export interface HeroFrameSettings {
+  style: HeroFrameStyle;
+  fit: HeroFrameFit;
+  focalPoint: { x: number; y: number };
+  aspectRatio: HeroFrameAspectRatio;
+  backdrop: HeroFrameBackdrop;
+  cornerBrackets: boolean;
+  infoTag: boolean;
+  shadow: boolean;
+  radius: number; // 0-40, default 24
+  padding: number; // 0-60, default 28
+  blur: number; // 0-60, default 36
+}
+
+export const DEFAULT_HERO_FRAME_SETTINGS: HeroFrameSettings = {
+  style: 'card',
+  fit: 'contain',
+  focalPoint: { x: 50, y: 50 },
+  aspectRatio: '4/5',
+  backdrop: 'blur',
+  cornerBrackets: true,
+  infoTag: true,
+  shadow: true,
+  radius: 24,
+  padding: 28,
+  blur: 36,
+};
+
+export function validateHeroFrameSettings(input: any): HeroFrameSettings {
+  if (!input || typeof input !== 'object') {
+    return { ...DEFAULT_HERO_FRAME_SETTINGS };
+  }
+
+  const validStyles: HeroFrameStyle[] = ['card', 'bleed', 'floating', 'polaroid'];
+  const validFits: HeroFrameFit[] = ['contain', 'cover', 'auto'];
+  const validRatios: HeroFrameAspectRatio[] = ['4/5', '1/1', '3/4', '16/9', 'auto'];
+  const validBackdrops: HeroFrameBackdrop[] = ['blur', 'solid', 'glow', 'transparent'];
+
+  const style: HeroFrameStyle = validStyles.includes(input.style) ? input.style : DEFAULT_HERO_FRAME_SETTINGS.style;
+  const fit: HeroFrameFit = validFits.includes(input.fit) ? input.fit : DEFAULT_HERO_FRAME_SETTINGS.fit;
+  const aspectRatio: HeroFrameAspectRatio = validRatios.includes(input.aspectRatio) ? input.aspectRatio : DEFAULT_HERO_FRAME_SETTINGS.aspectRatio;
+  const backdrop: HeroFrameBackdrop = validBackdrops.includes(input.backdrop) ? input.backdrop : DEFAULT_HERO_FRAME_SETTINGS.backdrop;
+
+  const clamp = (val: any, min: number, max: number, fallback: number) => {
+    const num = Number(val);
+    if (isNaN(num)) return fallback;
+    return Math.max(min, Math.min(max, Math.round(num)));
+  };
+
+  const rawX = input.focalPoint && typeof input.focalPoint === 'object' ? input.focalPoint.x : 50;
+  const rawY = input.focalPoint && typeof input.focalPoint === 'object' ? input.focalPoint.y : 50;
+
+  return {
+    style,
+    fit,
+    focalPoint: {
+      x: clamp(rawX, 0, 100, 50),
+      y: clamp(rawY, 0, 100, 50),
+    },
+    aspectRatio,
+    backdrop,
+    cornerBrackets: typeof input.cornerBrackets === 'boolean' ? input.cornerBrackets : DEFAULT_HERO_FRAME_SETTINGS.cornerBrackets,
+    infoTag: typeof input.infoTag === 'boolean' ? input.infoTag : DEFAULT_HERO_FRAME_SETTINGS.infoTag,
+    shadow: typeof input.shadow === 'boolean' ? input.shadow : DEFAULT_HERO_FRAME_SETTINGS.shadow,
+    radius: clamp(input.radius, 0, 40, DEFAULT_HERO_FRAME_SETTINGS.radius),
+    padding: clamp(input.padding, 0, 60, DEFAULT_HERO_FRAME_SETTINGS.padding),
+    blur: clamp(input.blur, 0, 60, DEFAULT_HERO_FRAME_SETTINGS.blur),
+  };
+}
+
 export interface StoreSettings {
   whatsapp_enabled: boolean;
   whatsapp_number: string;
@@ -12,6 +87,7 @@ export interface StoreSettings {
   hero_product_id: string;
   hero_custom_image_url: string;
   company_logo_url: string;
+  hero_frame: HeroFrameSettings;
 }
 
 const LOCAL_STORAGE_KEY = 'av_store_settings';
@@ -24,6 +100,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   hero_product_id: '',
   hero_custom_image_url: '',
   company_logo_url: DEFAULT_COMPANY_LOGO,
+  hero_frame: DEFAULT_HERO_FRAME_SETTINGS,
 };
 
 /**
@@ -62,6 +139,7 @@ export function getStoredWhatsAppSettings(): StoreSettings {
         hero_product_id: parsed.hero_product_id || '',
         hero_custom_image_url: parsed.hero_custom_image_url || '',
         company_logo_url: resolveCompanyLogo(parsed.company_logo_url),
+        hero_frame: validateHeroFrameSettings(parsed.hero_frame),
       };
     }
   } catch (err) {
@@ -110,6 +188,13 @@ export async function fetchStoreSettings(): Promise<StoreSettings> {
         remoteSettings.hero_custom_image_url = typeof row.value === 'string' ? row.value : '';
       } else if (row.key === 'company_logo_url') {
         remoteSettings.company_logo_url = resolveCompanyLogo(typeof row.value === 'string' ? row.value : undefined);
+      } else if (row.key === 'hero_frame') {
+        try {
+          const frameVal = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          remoteSettings.hero_frame = validateHeroFrameSettings(frameVal);
+        } catch {
+          remoteSettings.hero_frame = validateHeroFrameSettings(row.value);
+        }
       }
     });
 
@@ -127,7 +212,7 @@ export async function fetchStoreSettings(): Promise<StoreSettings> {
 }
 
 /**
- * Update WhatsApp order toggle, business number, and Hero showcase image settings (Admin only)
+ * Update WhatsApp order toggle, business number, Hero showcase image, and Hero frame settings (Admin only)
  */
 export async function updateStoreSettings(settings: Partial<StoreSettings>): Promise<StoreSettings> {
   const current = getStoredWhatsAppSettings();
@@ -138,6 +223,7 @@ export async function updateStoreSettings(settings: Partial<StoreSettings>): Pro
     hero_product_id: settings.hero_product_id !== undefined ? settings.hero_product_id : current.hero_product_id,
     hero_custom_image_url: settings.hero_custom_image_url !== undefined ? settings.hero_custom_image_url : current.hero_custom_image_url,
     company_logo_url: settings.company_logo_url !== undefined ? settings.company_logo_url : current.company_logo_url,
+    hero_frame: settings.hero_frame !== undefined ? validateHeroFrameSettings(settings.hero_frame) : current.hero_frame,
   };
 
   // 1. Immediately update localStorage for instant client reactivity
@@ -179,6 +265,11 @@ export async function updateStoreSettings(settings: Partial<StoreSettings>): Pro
         {
           key: 'company_logo_url',
           value: updated.company_logo_url,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          key: 'hero_frame',
+          value: updated.hero_frame,
           updated_at: new Date().toISOString(),
         },
       ];

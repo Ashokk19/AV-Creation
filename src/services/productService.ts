@@ -1,8 +1,190 @@
 import { getSupabaseClient, getProductImageUrl, isSupabaseConfigured } from '../lib/supabase';
 import { CategoryRecord, ProductRecord, ProductItem } from '../types';
 import { compressImageForUpload, formatFileSize } from '../utils/imageOptimizer';
+import { resolveProductGalleryPaths } from '../utils/galleryLogic';
 
 export { compressImageForUpload, formatFileSize };
+
+const PRODUCT_GALLERY_SETTING_PREFIX = 'product_gallery_';
+
+function isMissingImagesColumnError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return error.code === 'PGRST204' || error.code === '42703' || msg.includes('images');
+}
+
+async function fetchProductGalleriesFromSettings(
+  client: NonNullable<ReturnType<typeof getSupabaseClient>>
+): Promise<Map<string, string[]>> {
+  const galleryMap = new Map<string, string[]>();
+  try {
+    const { data, error } = await client
+      .from('store_settings')
+      .select('key, value')
+      .like('key', `${PRODUCT_GALLERY_SETTING_PREFIX}%`);
+
+    if (error || !data) {
+      return galleryMap;
+    }
+
+    for (const row of data as Array<{ key: string; value: unknown }>) {
+      if (!row.key?.startsWith(PRODUCT_GALLERY_SETTING_PREFIX)) continue;
+      const productId = row.key.slice(PRODUCT_GALLERY_SETTING_PREFIX.length);
+      let parsed: unknown = row.value;
+      if (typeof parsed === 'string') {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          parsed = null;
+        }
+      }
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+        if (cleaned.length > 0) {
+          galleryMap.set(productId, cleaned);
+        }
+      }
+    }
+  } catch {
+    // Graceful fallback if store_settings table is not yet provisioned
+  }
+  return galleryMap;
+}
+
+async function saveProductGalleryToSettings(
+  client: NonNullable<ReturnType<typeof getSupabaseClient>>,
+  productId: string,
+  images: string[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await client
+      .from('store_settings')
+      .upsert(
+        [
+          {
+            key: `${PRODUCT_GALLERY_SETTING_PREFIX}${productId}`,
+            value: images,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'key' }
+      );
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to save gallery fallback.' };
+  }
+}
+
+async function deleteProductGalleryFromSettings(
+  client: NonNullable<ReturnType<typeof getSupabaseClient>>,
+  productId: string
+): Promise<void> {
+  try {
+    await client
+      .from('store_settings')
+      .delete()
+      .eq('key', `${PRODUCT_GALLERY_SETTING_PREFIX}${productId}`);
+  } catch {
+    // Best-effort cleanup
+  }
+}
+
+/**
+ * Checks whether the Supabase `products.images` column exists in the active database.
+ */
+export async function checkProductsImagesColumnExists(): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return true;
+  try {
+    const { error } = await client.from('products').select('images').limit(1);
+    if (error && isMissingImagesColumnError(error)) {
+      return false;
+    }
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Migrates any legacy multi-image galleries saved only in this browser's localStorage
+ * into Supabase (`products.images` or `store_settings` fallback) so all browsers/devices see them.
+ */
+export async function syncLocalGalleriesToSupabase(): Promise<{
+  syncedCount: number;
+  schemaMissingImagesColumn: boolean;
+}> {
+  const client = getSupabaseClient();
+  if (!client || typeof window === 'undefined') {
+    return { syncedCount: 0, schemaMissingImagesColumn: false };
+  }
+
+  let syncedCount = 0;
+  let schemaMissingImagesColumn = false;
+
+  try {
+    const [{ data: prodRows, error: prodErr }, settingsMap] = await Promise.all([
+      client.from('products').select('*'),
+      fetchProductGalleriesFromSettings(client),
+    ]);
+
+    if (prodErr || !prodRows) {
+      return { syncedCount: 0, schemaMissingImagesColumn: false };
+    }
+
+    for (const p of prodRows as Array<{ id: string; image_path: string; images?: string[] | null }>) {
+      const dbImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+      const settingsImages = settingsMap.get(p.id) || [];
+
+      if (dbImages.length > 1 || settingsImages.length > 1) {
+        continue; // Already persisted in Supabase DB
+      }
+
+      let cachedImages: string[] = [];
+      try {
+        const cachedRaw = localStorage.getItem(`av_product_images_${p.id}`);
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (Array.isArray(parsed)) {
+            cachedImages = parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+
+      if (cachedImages.length <= 1) continue;
+
+      // Try updating `products.images` first
+      const { error: updateErr } = await client
+        .from('products')
+        .update({ images: cachedImages, image_path: cachedImages[0] || p.image_path })
+        .eq('id', p.id);
+
+      if (!updateErr) {
+        syncedCount++;
+        await deleteProductGalleryFromSettings(client, p.id);
+      } else if (isMissingImagesColumnError(updateErr)) {
+        schemaMissingImagesColumn = true;
+        const res = await saveProductGalleryToSettings(client, p.id, cachedImages);
+        if (res.success) {
+          syncedCount++;
+        }
+      }
+    }
+
+    if (!schemaMissingImagesColumn) {
+      schemaMissingImagesColumn = !(await checkProductsImagesColumnExists());
+    }
+  } catch (err) {
+    console.warn('Error syncing local galleries to Supabase:', err);
+  }
+
+  return { syncedCount, schemaMissingImagesColumn };
+}
 
 export const DEFAULT_CATEGORIES: { name: string; slug: string }[] = [
   { name: 'Tea Lights', slug: 'tea-lights' },
@@ -282,20 +464,30 @@ export async function fetchProducts(options?: {
       return [];
     }
 
-    return (data || []).map((p) => {
-      let rawImages: string[] =
+    const rows = data || [];
+    const needsSettingsGalleryFallback = rows.some(
+      (p) => !Array.isArray(p.images) || p.images.length <= 1
+    );
+    const settingsGalleryMap = needsSettingsGalleryFallback
+      ? await fetchProductGalleriesFromSettings(client)
+      : new Map<string, string[]>();
+
+    return rows.map((p) => {
+      const dbImages: string[] =
         Array.isArray(p.images) && p.images.length > 0
           ? p.images.filter(Boolean)
           : [];
 
-      // Check client-side cached images if column wasn't present in DB
-      if (rawImages.length === 0 && typeof window !== 'undefined') {
+      const settingsImages = settingsGalleryMap.get(p.id) || [];
+
+      let cachedImages: string[] = [];
+      if (typeof window !== 'undefined') {
         try {
           const cached = localStorage.getItem(`av_product_images_${p.id}`);
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              rawImages = parsed.filter(Boolean);
+              cachedImages = parsed.filter(Boolean);
             }
           }
         } catch {
@@ -303,9 +495,12 @@ export async function fetchProducts(options?: {
         }
       }
 
-      if (rawImages.length === 0 && p.image_path) {
-        rawImages = [p.image_path];
-      }
+      const rawImages = resolveProductGalleryPaths({
+        dbImages,
+        settingsImages,
+        cachedImages,
+        primaryImagePath: p.image_path,
+      });
 
       const imageUrls = rawImages.map((imgPath: string) => getProductImageUrl(imgPath));
       const primaryUrl = imageUrls[0] || getProductImageUrl(p.image_path);
@@ -502,6 +697,7 @@ export async function createProduct(
   };
 
   let created: any = null;
+  let usedImagesColumnFallback = false;
   const { data: insertResult, error } = await client
     .from('products')
     .insert([insertPayload])
@@ -509,8 +705,9 @@ export async function createProduct(
     .single();
 
   if (error) {
-    // If column doesn't exist yet in the database schema cache (PGRST204), fallback safely without `images`
-    if (error.code === 'PGRST204' || error.message.includes('images')) {
+    // If column doesn't exist yet in the database schema cache (PGRST204 / 42703), fallback without `images` and store in `store_settings`
+    if (isMissingImagesColumnError(error)) {
+      usedImagesColumnFallback = true;
       const fallbackPayload = { ...insertPayload };
       delete fallbackPayload.images;
       const retry = await client
@@ -527,6 +724,21 @@ export async function createProduct(
     }
   } else {
     created = insertResult;
+  }
+
+  // Ensure multi-image array is persisted in Supabase DB even if `products.images` column doesn't exist yet
+  const dbPersistedAllImages =
+    !usedImagesColumnFallback &&
+    Array.isArray(created?.images) &&
+    created.images.length === finalImages.length;
+
+  if (created?.id && !dbPersistedAllImages) {
+    const fallbackSave = await saveProductGalleryToSettings(client, created.id, finalImages);
+    if (!fallbackSave.success && finalImages.length > 1) {
+      throw new Error(
+        `Product "${created.name}" was created, but additional photos could not be saved to Supabase because the "images" column is missing. Please run the SQL script in Admin -> Database Setup.`
+      );
+    }
   }
 
   // Persist images cache locally for immediate responsiveness
@@ -578,16 +790,27 @@ export async function updateProduct(
   // Fetch current product to check previously saved images for safe cleanup
   let previousImages: string[] = [];
   try {
-    const { data: currentProd } = await client
+    const { data: currentProd, error: currErr } = await client
       .from('products')
       .select('image_path, images')
       .eq('id', id)
       .single();
-    if (currentProd) {
+    if (!currErr && currentProd) {
       if (Array.isArray(currentProd.images) && currentProd.images.length > 0) {
         previousImages = currentProd.images;
       } else if (currentProd.image_path) {
         previousImages = [currentProd.image_path];
+      }
+    } else {
+      const [{ data: legacyProd }, settingsMap] = await Promise.all([
+        client.from('products').select('image_path').eq('id', id).single(),
+        fetchProductGalleriesFromSettings(client),
+      ]);
+      const settingsPrev = settingsMap.get(id) || [];
+      if (settingsPrev.length > 0) {
+        previousImages = settingsPrev;
+      } else if (legacyProd?.image_path) {
+        previousImages = [legacyProd.image_path];
       }
     }
   } catch {
@@ -636,6 +859,7 @@ export async function updateProduct(
   };
 
   let updated: any = null;
+  let usedImagesColumnFallback = false;
   const { data: updateResult, error } = await client
     .from('products')
     .update(updatePayload)
@@ -644,7 +868,8 @@ export async function updateProduct(
     .single();
 
   if (error) {
-    if (error.code === 'PGRST204' || error.message.includes('images')) {
+    if (isMissingImagesColumnError(error)) {
+      usedImagesColumnFallback = true;
       const fallbackPayload = { ...updatePayload };
       delete fallbackPayload.images;
       const retry = await client
@@ -662,6 +887,24 @@ export async function updateProduct(
     }
   } else {
     updated = updateResult;
+  }
+
+  const dbPersistedAllImages =
+    !usedImagesColumnFallback &&
+    Array.isArray(updated?.images) &&
+    updated.images.length === finalImages.length;
+
+  if (dbPersistedAllImages) {
+    // Keep store_settings clean when native products.images column holds the truth
+    await deleteProductGalleryFromSettings(client, id);
+  } else {
+    // Persist full ordered gallery in store_settings so private browsers & other devices see all photos
+    const fallbackSave = await saveProductGalleryToSettings(client, id, finalImages);
+    if (!fallbackSave.success && finalImages.length > 1) {
+      throw new Error(
+        `Main photo was updated, but additional photos could not be saved to Supabase because the "images" column is missing. Please run the SQL script in Admin -> Database Setup.`
+      );
+    }
   }
 
   // Persist images cache locally for immediate responsiveness
@@ -713,6 +956,8 @@ export async function deleteProduct(id: string, imagePaths?: string | string[]):
   if (error) {
     throw new Error(error.message || 'Failed to delete product.');
   }
+
+  await deleteProductGalleryFromSettings(client, id);
 
   if (id && typeof window !== 'undefined') {
     try {

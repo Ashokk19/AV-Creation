@@ -168,3 +168,34 @@ export function detectSwipeDirection(
   }
   return deltaX > 0 ? 'left' : 'right';
 }
+
+export interface ProductGalleryResolutionInput {
+  dbImages?: string[] | null;
+  settingsImages?: string[] | null;
+  cachedImages?: string[] | null;
+  primaryImagePath?: string | null;
+}
+
+/**
+ * Normalizes and resolves the authoritative gallery image paths for a product across sources:
+ * 1. `products.images` column when populated with >1 photos (or when no settings fallback exists)
+ * 2. `store_settings` (`product_gallery_<id>`) cross-browser DB fallback when `products.images` column is missing/empty
+ * 3. Client-side cache (used only if neither DB source has extra images)
+ * 4. Legacy single `image_path`
+ */
+export function resolveProductGalleryPaths(input: ProductGalleryResolutionInput): string[] {
+  const clean = (arr?: string[] | null): string[] =>
+    Array.isArray(arr) ? arr.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean) : [];
+
+  const db = clean(input.dbImages);
+  const settings = clean(input.settingsImages);
+  const cached = clean(input.cachedImages);
+  const primary = typeof input.primaryImagePath === 'string' ? input.primaryImagePath.trim() : '';
+
+  if (db.length > 1) return db;
+  if (settings.length > 0) return settings;
+  if (db.length > 0) return db;
+  if (cached.length > 0) return cached;
+  if (primary) return [primary];
+  return [];
+}

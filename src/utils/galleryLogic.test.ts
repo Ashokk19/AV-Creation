@@ -9,6 +9,7 @@ import {
   removeImageAtIndex,
   calculateNextGalleryIndex,
   detectSwipeDirection,
+  resolveProductGalleryPaths,
 } from './galleryLogic';
 
 describe('galleryLogic', () => {
@@ -144,6 +145,54 @@ describe('galleryLogic', () => {
 
     test('ignores micro movements below threshold', () => {
       assert.equal(detectSwipeDirection(100, 110, 40), null);
+    });
+  });
+
+  describe('resolveProductGalleryPaths', () => {
+    test('prefers dbImages when products.images column has multiple photos', () => {
+      assert.deepEqual(
+        resolveProductGalleryPaths({
+          dbImages: ['db1.webp', 'db2.webp'],
+          settingsImages: ['set1.webp', 'set2.webp'],
+          cachedImages: ['cache1.webp'],
+          primaryImagePath: 'db1.webp',
+        }),
+        ['db1.webp', 'db2.webp']
+      );
+    });
+
+    test('uses store_settings gallery fallback when products.images column is missing/empty (private browser support)', () => {
+      assert.deepEqual(
+        resolveProductGalleryPaths({
+          dbImages: [],
+          settingsImages: ['main.webp', 'angle2.webp', 'angle3.webp', 'angle4.webp'],
+          cachedImages: [],
+          primaryImagePath: 'main.webp',
+        }),
+        ['main.webp', 'angle2.webp', 'angle3.webp', 'angle4.webp']
+      );
+    });
+
+    test('falls back to cachedImages then single primaryImagePath', () => {
+      assert.deepEqual(
+        resolveProductGalleryPaths({
+          dbImages: null,
+          settingsImages: null,
+          cachedImages: ['c1.webp', 'c2.webp'],
+          primaryImagePath: 'c1.webp',
+        }),
+        ['c1.webp', 'c2.webp']
+      );
+
+      assert.deepEqual(
+        resolveProductGalleryPaths({
+          dbImages: null,
+          settingsImages: null,
+          cachedImages: null,
+          primaryImagePath: 'single.webp',
+        }),
+        ['single.webp']
+      );
     });
   });
 });

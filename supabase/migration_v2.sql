@@ -3,9 +3,12 @@
 -- Run this script in the Supabase SQL Editor to upgrade your existing database.
 -- ================================================================
 
--- 1. Add Price Column to Products Table
+-- 1. Add Price & Multi-Image Gallery Columns to Products Table
 ALTER TABLE public.products 
 ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2) CHECK (price >= 0);
+
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_products_price ON public.products (price);
 

@@ -50,6 +50,7 @@ import {
   updateCategory,
   deleteCategory,
   uploadProductImage,
+  syncLocalGalleriesToSupabase,
 } from '../../services/productService';
 import {
   fetchEnquiries,
@@ -194,6 +195,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setHeroFrame(storeSettings.hero_frame || DEFAULT_HERO_FRAME_SETTINGS);
       if (cats.length > 0 && !prodCategory) {
         setProdCategory(cats[0].id);
+      }
+
+      // Auto-sync any multi-photo galleries previously only cached in this browser's localStorage
+      const syncResult = await syncLocalGalleriesToSupabase();
+      if (syncResult.syncedCount > 0) {
+        const refreshedProds = await fetchProducts({ status: 'all' });
+        setProducts(refreshedProds);
+        showNotification(
+          'success',
+          `Synced ${syncResult.syncedCount} product photo ${syncResult.syncedCount === 1 ? 'gallery' : 'galleries'} to Supabase so additional photos are visible in all browsers.`
+        );
       }
     } catch (err: any) {
       console.error('Error loading dashboard data:', err);

@@ -75,14 +75,14 @@ describe('instagramOrder', () => {
     assert.match(result.errorMessage || '', /empty/i);
   });
 
-  test('detects unpriced items and marks cart as invalid', () => {
+  test('allows unpriced items and reports them for price-on-request note', () => {
     const mixedItems: CartItem[] = [
       ...samplePricedItems,
       {
         product: {
           ...samplePricedItems[0].product,
           id: '3',
-          title: 'Custom Kinetic Sphere',
+          title: 'Lotus Tea Light',
           price: null,
         },
         quantity: 1,
@@ -90,8 +90,49 @@ describe('instagramOrder', () => {
     ];
 
     const result = validateCartForInstagram(mixedItems);
-    assert.equal(result.isValid, false);
-    assert.deepEqual(result.unpricedProducts, ['Custom Kinetic Sphere']);
+    assert.equal(result.isValid, true);
+    assert.deepEqual(result.unpricedProducts, ['Lotus Tea Light']);
+  });
+
+  test('formats structured Instagram message asking for price when item has no fixed price', () => {
+    const unpricedOnly: CartItem[] = [
+      {
+        product: {
+          ...samplePricedItems[0].product,
+          id: '4',
+          title: 'Lotus Tea Light',
+          price: null,
+        },
+        quantity: 2,
+      },
+    ];
+
+    const message = generateInstagramOrderMessage(unpricedOnly);
+    assert.match(message, /Lotus Tea Light/);
+    assert.match(message, /Quantity: 2/);
+    assert.match(message, /Please share the price/i);
+  });
+
+  test('formats structured Instagram message for mixed priced and unpriced items', () => {
+    const mixedItems: CartItem[] = [
+      samplePricedItems[0],
+      {
+        product: {
+          ...samplePricedItems[0].product,
+          id: '4',
+          title: 'Lotus Tea Light',
+          price: null,
+        },
+        quantity: 1,
+      },
+    ];
+
+    const message = generateInstagramOrderMessage(mixedItems);
+    assert.match(message, /1\. Lotus Lamp/);
+    assert.match(message, /Price: ₹350/);
+    assert.match(message, /2\. Lotus Tea Light/);
+    assert.match(message, /Price: Please share the price/);
+    assert.match(message, /Known Items Total: ₹700 \(\+ quote needed for: Lotus Tea Light\)/);
   });
 
   test('formats structured Instagram message with items, quantities, prices, subtotals, and total', () => {

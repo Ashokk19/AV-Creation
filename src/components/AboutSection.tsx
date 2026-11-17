@@ -1,97 +1,79 @@
 import React from 'react';
-import { Layers, Flame, Wrench, ShieldCheck, Compass, Sparkles } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 
-export const AboutSection: React.FC = () => {
+interface AboutSectionProps {
+  onRequestCustom?: () => void;
+}
+
+export const AboutSection: React.FC<AboutSectionProps> = ({ onRequestCustom }) => {
+  const stats = [
+    { metric: '0.08 mm', label: 'Fine Layer Precision' },
+    { metric: '±0.05 mm', label: 'Calibrated Tolerance' },
+    { metric: 'PLA+ / PETG', label: 'Bio-Derived Polymers' },
+    { metric: 'CoreXY', label: 'Direct Toolpaths' },
+  ];
+
   return (
-    <section id="about" className="scroll-mt-24 relative py-20 sm:py-28 bg-[#0D0D0F] border-t border-[#1C1C20] overflow-hidden">
-      {/* Background Subtle Gradient */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-[#E7A96B]/5 blur-[120px] pointer-events-none rounded-full" />
+    <section
+      id="about"
+      className="scroll-mt-24 max-w-[1080px] mx-auto px-5 sm:px-8 lg:px-12 py-8 sm:py-12"
+    >
+      <p className="text-[11px] uppercase tracking-[0.22em] text-[rgba(43,39,33,0.56)] mb-5">
+        About the Studio
+      </p>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Editorial Split: Headline & Narrative */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start mb-16">
-          <div className="lg:col-span-5">
-            <span className="text-xs font-mono font-semibold tracking-widest text-[#E7A96B] uppercase">
-              The AV Studio Ethos
+      {/* Main Split matching meng-to-sketchbook .about + bloom.png */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-8 lg:gap-14 items-center">
+        <div className="space-y-5">
+          <h2 className="sb-display text-3xl sm:text-4xl lg:text-[42px] leading-[1.08] text-[#2b2721] [text-wrap:balance]">
+            Digital Ideas. <span className="italic text-[#9a6a3e]">Real-World Creations.</span>
+          </h2>
+
+          <p className="sb-prose text-base sm:text-[18.5px] leading-[1.72] text-[rgba(43,39,33,0.84)] max-w-[58ch]">
+            At AV Creations, we believe every great creation begins with an idea. Through 3D printing, we turn those ideas into real objects that bring creativity, joy, and character into everyday life.
+          </p>
+
+          <p className="sb-prose text-base sm:text-[18.5px] leading-[1.72] text-[rgba(43,39,33,0.78)] max-w-[58ch]">
+            From playful articulated toys and interactive clickers to decorative lamps and unique home décor, every piece is sliced with calibrated precision and inspected by hand before leaving our studio.
+          </p>
+
+          {onRequestCustom && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onRequestCustom}
+                className="inline-flex items-center gap-2.5 text-xs uppercase tracking-[0.18em] text-[#2b2721] hover:text-[#784f2b] border-b border-[rgba(43,39,33,0.3)] hover:border-[#784f2b] pb-1 transition-colors cursor-pointer"
+              >
+                <span>Commission a Custom Creation</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <img
+          src="/assets/sketchbook/bloom.png"
+          alt="AV Creations botanical notebook accent"
+          className="w-40 sm:w-52 lg:w-60 mx-auto opacity-85 select-none pointer-events-none"
+          draggable={false}
+        />
+      </div>
+
+      {/* Studio Craft Specs Row */}
+      <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 border-t border-l border-[rgba(43,39,33,0.14)] bg-[rgba(250,247,239,0.5)]">
+        {stats.map((item) => (
+          <div
+            key={item.label}
+            className="p-5 sm:p-6 border-r border-b border-[rgba(43,39,33,0.14)]"
+          >
+            <strong className="sb-display text-2xl sm:text-3xl font-normal text-[#2b2721] block tabular-nums">
+              {item.metric}
+            </strong>
+            <span className="block mt-1 text-[10px] uppercase tracking-[0.18em] text-[rgba(43,39,33,0.62)]">
+              {item.label}
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#F5F3EF] mt-2 leading-[1.15] [text-wrap:balance]">
-              Digital Ideas. Real-World Creations.
-            </h2>
-            <div className="mt-6 flex items-center gap-3 text-xs font-mono text-[#8E8E93]">
-              <span>Additive Precision</span>
-              <span aria-hidden="true">·</span>
-              <span>Generative Geometry</span>
-              <span aria-hidden="true">·</span>
-              <span className="text-[#E7A96B]">Bespoke Craft</span>
-            </div>
           </div>
-
-          <div className="lg:col-span-7 space-y-5 text-sm sm:text-base text-[#A1A1AA] leading-relaxed font-normal">
-            <p>
-              At AV Creations, we believe every great creation begins with an idea. Through 3D printing, we turn those ideas into real objects that bring creativity, joy, and character into everyday life.
-            </p>
-            <p>
-              From playful articulated toys and interactive clickers to decorative lamps and unique home décor, every creation is designed to offer something special. We love exploring new designs, experimenting with colours, and transforming digital concepts into tangible products that people can enjoy, display, and share.
-            </p>
-            <p className="text-[#F5F3EF] font-medium">
-              As a creative 3D printing studio, we focus on the little details that make each piece unique. Our goal is simple: to make imaginative designs accessible, create products that spark curiosity, and bring a little more creativity into the world.
-            </p>
-          </div>
-        </div>
-
-        {/* 3 Real Studio Craft Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-[#1F1F24]">
-          <div className="bg-[#141416] border border-[#222226] p-6 rounded-xl flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-[#1E1E22] flex items-center justify-center text-[#E7A96B] mb-4">
-                <Layers className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#F5F3EF] mb-2">
-                0.08–0.16mm Layer Fidelity
-              </h3>
-              <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                By dialing in sub-fractional layer heights and high-precision hardened nozzles, layer lines transform from visual artifacts into subtle, textile-like surface textures that diffuse light with organic warmth.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-[#1F1F24] text-[11px] font-mono text-[#71717A]">
-              Tolerance: ±0.05 mm
-            </div>
-          </div>
-
-          <div className="bg-[#141416] border border-[#222226] p-6 rounded-xl flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-[#1E1E22] flex items-center justify-center text-[#E7A96B] mb-4">
-                <Flame className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#F5F3EF] mb-2">
-                Curated Engineering Filaments
-              </h3>
-              <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                We formulate with plant-based corn-derived PLA+, shatter-resistant translucent PETG, real wood composite fibers, and chopped carbon fiber blends for industrial durability and safe indoor ambient lighting.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-[#1F1F24] text-[11px] font-mono text-[#71717A]">
-              Bio-Compatible & Recyclable
-            </div>
-          </div>
-
-          <div className="bg-[#141416] border border-[#222226] p-6 rounded-xl flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-[#1E1E22] flex items-center justify-center text-[#E7A96B] mb-4">
-                <Wrench className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#F5F3EF] mb-2">
-                Hand-Finished Quality Post-Process
-              </h3>
-              <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                No piece leaves the studio untreated. Supports are removed with surgical scalpel precision, seams are thermally smoothed, and functional threads and joints are dry-cycled to guarantee silky operation.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-[#1F1F24] text-[11px] font-mono text-[#71717A]">
-              Inspected Layer by Layer
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   );

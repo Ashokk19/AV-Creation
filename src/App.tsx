@@ -4,13 +4,11 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ProductItem, ColorVariant, CategoryRecord, ProductRecord, CartItem } from './types';
-import { getCategoryCarousels } from './utils/filterLogic';
+import { ProductItem, ColorVariant, CategoryRecord, CartItem } from './types';
 import { fetchCategories, fetchProducts, mapProductRecordToItem } from './services/productService';
 import { getCurrentAdmin } from './services/authService';
 import { Navbar } from './components/Navbar';
-import { HeroFeature } from './components/HeroFeature';
-import { CollectionRow } from './components/CollectionRow';
+import { CataloguePage } from './components/catalogue/CataloguePage';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { CollectionsView } from './components/CollectionsView';
 import { CustomPrintSection } from './components/CustomPrintSection';
@@ -113,7 +111,7 @@ export default function App() {
     }
   }, [cartItems]);
 
-  // Synchronize cart items with live product updates from Supabase (prices, status, etc.)
+  // Synchronize cart items with live product updates from Supabase
   useEffect(() => {
     if (products.length === 0) return;
     setCartItems((prevItems) => {
@@ -133,7 +131,6 @@ export default function App() {
     });
   }, [products]);
 
-  // Cart Action Handlers
   const handleAddToCart = (product: ProductItem, quantity = 1, selectedColor?: ColorVariant) => {
     const chosenColor = selectedColor || product.availableColors[0];
     setCartItems((prev) => {
@@ -188,7 +185,6 @@ export default function App() {
     return cartItems.reduce((acc, item) => acc + item.quantity, 0);
   }, [cartItems]);
 
-  // Navigate helper with browser History pushState
   const navigateTo = useCallback((path: string) => {
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', path);
@@ -197,7 +193,6 @@ export default function App() {
     }
   }, []);
 
-  // Listen for browser forward/back buttons
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
@@ -206,14 +201,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Check Admin Session on mount
   const checkAdminSession = useCallback(async () => {
     setIsAuthChecking(true);
     try {
       const { user, isAdmin: isVerifiedAdmin } = await getCurrentAdmin();
       setAdminUser(user);
       setIsAdmin(isVerifiedAdmin);
-    } catch (err) {
+    } catch {
       setAdminUser(null);
       setIsAdmin(false);
     } finally {
@@ -225,7 +219,6 @@ export default function App() {
     checkAdminSession();
   }, [checkAdminSession]);
 
-  // Load Categories & Products Dynamically from Supabase
   const loadDynamicCatalog = useCallback(async () => {
     setIsLoadingCatalog(true);
     try {
@@ -247,7 +240,6 @@ export default function App() {
     loadDynamicCatalog();
   }, [loadDynamicCatalog]);
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -276,7 +268,6 @@ export default function App() {
     };
   }, [isSearchOpen]);
 
-  // Toggle favorite
   const handleToggleFavorite = (product: ProductItem) => {
     setFavoriteIds((prev) =>
       prev.includes(product.id) ? prev.filter((id) => id !== product.id) : [...prev, product.id]
@@ -287,7 +278,6 @@ export default function App() {
     setFavoriteIds([]);
   };
 
-  // Featured hero item (respects admin hero showcase selection, featured flag, or catalogue fallback)
   const heroDisplayProduct = useMemo(() => {
     if (storeSettings.hero_product_id) {
       const chosen = products.find((p) => p.id === storeSettings.hero_product_id);
@@ -296,17 +286,10 @@ export default function App() {
     return products.find((p) => p.featured) || (products.length > 0 ? products[0] : null);
   }, [products, storeSettings.hero_product_id]);
 
-  // Dynamic Category Carousels for public home view
-  const carousels = useMemo(() => {
-    return getCategoryCarousels(categories, products);
-  }, [categories, products]);
-
-  // Favorite product items
   const favoriteProducts = useMemo(() => {
     return products.filter((p) => favoriteIds.includes(p.id));
   }, [products, favoriteIds]);
 
-  // Related products for detail modal
   const relatedProducts = useMemo(() => {
     if (!selectedProduct) return [];
     return products.filter(
@@ -339,7 +322,6 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScrollSpy);
   }, [activeView]);
 
-  // Public Navigation handlers
   const handlePublicNavigate = (view: 'home' | 'collections' | 'custom' | 'about') => {
     if (currentPath !== '/') {
       navigateTo('/');
@@ -361,8 +343,7 @@ export default function App() {
       };
       doScroll();
       setTimeout(doScroll, 60);
-      setTimeout(doScroll, 180);
-      setTimeout(doScroll, 350);
+      setTimeout(doScroll, 220);
     } else if (view === 'about') {
       setActiveView('home');
       setActiveNavSection('about');
@@ -374,8 +355,7 @@ export default function App() {
       };
       doScroll();
       setTimeout(doScroll, 60);
-      setTimeout(doScroll, 180);
-      setTimeout(doScroll, 350);
+      setTimeout(doScroll, 220);
     } else {
       setActiveView('home');
       setActiveNavSection('home');
@@ -390,13 +370,6 @@ export default function App() {
       navigateTo('/');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleExploreClick = () => {
-    const el = document.getElementById('browse-creations');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   const handleRequestOrderFromProduct = (product: ProductItem, selectedColor: ColorVariant) => {
@@ -432,7 +405,6 @@ export default function App() {
   // ROUTE 1: ADMIN LOGIN (/admin/login)
   if (currentPath === '/admin/login') {
     if (!isAuthChecking && isAdmin && adminUser) {
-      // Already authenticated admin -> redirect to /admin
       navigateTo('/admin');
       return null;
     }
@@ -461,7 +433,6 @@ export default function App() {
       );
     }
 
-    // Security Gate: User must be authenticated and verified as admin
     if (!isAdmin || !adminUser) {
       if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
         window.history.replaceState({}, '', '/admin/login');
@@ -495,9 +466,12 @@ export default function App() {
     );
   }
 
-  // ROUTE 3: PUBLIC CINEMATIC PORTFOLIO (Home & Collections)
+  // ROUTE 3: PUBLIC INTERACTIVE BOOK-STYLE CATALOGUE (MengToSketchbook × AV Creations)
   return (
-    <div className="min-h-screen bg-[#101010] text-[#F5F3EF] font-sans antialiased selection:bg-[#E7A96B]/30 selection:text-[#F5F3EF]">
+    <div className="relative min-h-screen bg-[#ece7dc] text-[#2b2721] sb-prose antialiased selection:bg-[#2b2721] selection:text-[#ece7dc]">
+      {/* Painted Sketchbook Watercolor Ground */}
+      <div className="sb-wash" aria-hidden="true" />
+
       {/* Navigation Bar */}
       <Navbar
         activeView={activeNavSection}
@@ -515,79 +489,69 @@ export default function App() {
         onNavigateToAdmin={() => navigateTo('/admin')}
       />
 
-      {/* Main Public Content Area */}
-      <main>
-        {activeView === 'collections' ? (
-          /* Dedicated Curated Collections Gallery View */
-          <CollectionsView
-            initialCategory={selectedCategoryForCollections}
-            categories={categories}
-            allProducts={products}
-            favorites={favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-            onSelectProduct={(p) => setSelectedProduct(p)}
-            onAddToCart={(p) => handleAddToCart(p, 1)}
-            onBackToDiscover={() => handlePublicNavigate('home')}
-            onRequestCustom={() => handlePublicNavigate('custom')}
-          />
-        ) : (
-          /* Netflix-Style Cinematic Home Discovery View */
-          <>
-            {/* Immersive Cinematic Hero */}
-            <HeroFeature
-              heroImageType={storeSettings.hero_image_type}
-              product={heroDisplayProduct}
-              customImageUrl={storeSettings.hero_custom_image_url}
-              companyLogoUrl={storeSettings.company_logo_url}
-              heroFrame={storeSettings.hero_frame}
-              onExplore={handleExploreClick}
-              onViewProduct={(p) => setSelectedProduct(p)}
+      <div className="relative z-10">
+        <main>
+          {activeView === 'collections' ? (
+            <CollectionsView
+              initialCategory={selectedCategoryForCollections}
+              categories={categories}
+              allProducts={products}
+              favorites={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
+              onSelectProduct={(p) => setSelectedProduct(p)}
+              onAddToCart={(p) => handleAddToCart(p, 1)}
+              onBackToDiscover={() => handlePublicNavigate('home')}
               onRequestCustom={() => handlePublicNavigate('custom')}
             />
+          ) : (
+            <>
+              <CataloguePage
+                categories={categories}
+                products={products}
+                isLoadingCatalog={isLoadingCatalog}
+                heroImageType={storeSettings.hero_image_type}
+                heroProduct={heroDisplayProduct}
+                heroCustomImageUrl={storeSettings.hero_custom_image_url}
+                companyLogoUrl={storeSettings.company_logo_url}
+                heroFrame={storeSettings.hero_frame}
+                favorites={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                onSelectProduct={(p) => setSelectedProduct(p)}
+                onAddToCart={handleAddToCart}
+                onRequestCustom={(prefill) => {
+                  setCustomInquiryPreFill(prefill || '');
+                  handlePublicNavigate('custom');
+                }}
+                onOpenFullCollections={(slug?: string) => handleViewCategory(slug || 'all')}
+              />
 
-            {/* Horizontal Netflix-Inspired Content Rows (Dynamic from Supabase) */}
-            <div id="browse-creations" className="space-y-4 pt-6 pb-12">
-              {carousels.map((carousel) => (
-                <CollectionRow
-                  key={carousel.id}
-                  id={carousel.id}
-                  title={carousel.title}
-                  subtitle={carousel.subtitle}
-                  items={carousel.items}
-                  favorites={favoriteIds}
-                  onToggleFavorite={handleToggleFavorite}
-                  onSelectProduct={(p) => setSelectedProduct(p)}
-                  onAddToCart={(p) => handleAddToCart(p, 1)}
-                  onViewCategory={handleViewCategory}
-                  onRequestCustom={(categoryTitle) => {
-                    setCustomInquiryPreFill(categoryTitle ? `Custom ${categoryTitle} Print` : '');
-                    handlePublicNavigate('custom');
-                  }}
-                  categorySlug={carousel.id !== 'featured' ? carousel.id : undefined}
-                />
-              ))}
-            </div>
+              <div className="sb-rule short" aria-hidden="true" />
 
-            {/* Custom 3D Printing Feature & Technical Estimator */}
-            <CustomPrintSection initialItemName={customInquiryPreFill} />
+              <CustomPrintSection initialItemName={customInquiryPreFill} />
 
-            {/* About AV Creation & Workshop Craft */}
-            <AboutSection />
-          </>
-        )}
-      </main>
+              <div className="sb-rule short" aria-hidden="true" />
 
-      {/* Footer with Discreet Admin Portal link */}
-      <Footer
-        onNavigate={handlePublicNavigate}
-        onRequestCustom={() => {
-          setCustomInquiryPreFill('');
-          handlePublicNavigate('custom');
-        }}
-        onNavigateToAdmin={() => navigateTo('/admin/login')}
-      />
+              <AboutSection
+                onRequestCustom={() => {
+                  setCustomInquiryPreFill('');
+                  handlePublicNavigate('custom');
+                }}
+              />
+            </>
+          )}
+        </main>
 
-      {/* Product Detail Modal */}
+        <Footer
+          onNavigate={handlePublicNavigate}
+          onRequestCustom={() => {
+            setCustomInquiryPreFill('');
+            handlePublicNavigate('custom');
+          }}
+          onNavigateToAdmin={() => navigateTo('/admin/login')}
+        />
+      </div>
+
+      {/* Product Detail Lightbox Modal */}
       <ProductDetailModal
         product={selectedProduct}
         isOpen={Boolean(selectedProduct)}
@@ -614,7 +578,7 @@ export default function App() {
         }}
       />
 
-      {/* Favorites / Saved Creations Drawer */}
+      {/* Saved Bookmarks Drawer */}
       <FavoritesDrawer
         isOpen={isFavoritesOpen}
         onClose={() => setIsFavoritesOpen(false)}
@@ -625,7 +589,7 @@ export default function App() {
         onInquireBatch={handleInquireBatch}
       />
 
-      {/* Global Search Dialog Modal */}
+      {/* Global Search Modal */}
       <SearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}

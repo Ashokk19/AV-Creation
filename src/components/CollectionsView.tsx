@@ -67,63 +67,61 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   const currentCategoryObj = categories.find((c) => c.slug === selectedCategory);
   const getCategoryTitle = () => {
-    if (selectedCategory === 'all') return 'Complete Studio Portfolio';
-    return currentCategoryObj ? `${currentCategoryObj.name} Collection` : 'Studio Collection';
+    if (selectedCategory === 'all') return 'Complete Studio Archive';
+    return currentCategoryObj ? `${currentCategoryObj.name}` : 'Studio Collection';
   };
 
   const getCategoryDescription = () => {
     if (selectedCategory === 'all') {
-      return 'Curated additive manufacturing designs produced layer-by-layer at the AV Creation independent studio.';
+      return 'Every active 3D printed edition produced at the AV Creations studio, organized for quick browsing and direct ordering.';
     }
-    return `Explore high-precision 3D prints crafted specifically for the ${currentCategoryObj?.name || 'studio'} collection.`;
+    return `Explore high-precision 3D prints crafted for the ${currentCategoryObj?.name || 'studio'} chapter.`;
   };
 
   return (
-    <div className="min-h-screen bg-[#101010] text-[#F5F3EF] pt-24 pb-20">
-      {/* Editorial Banner */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+    <div className="min-h-screen text-[#2b2721] pt-24 pb-20">
+      {/* Chapter Header */}
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 mb-8">
         <button
           onClick={onBackToDiscover}
-          className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA] hover:text-[#E7A96B] transition-colors mb-6 font-mono cursor-pointer"
+          className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[rgba(43,39,33,0.68)] hover:text-[#784f2b] transition-colors mb-6 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Discover Home</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Interactive Sketchbook</span>
         </button>
 
-        <div className="border-b border-[#222226] pb-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <span className="text-xs font-mono tracking-widest text-[#E7A96B] uppercase">
-                Curated Catalog
-              </span>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#F5F3EF] mt-1">
-                {getCategoryTitle()}
-              </h1>
-              <p className="text-sm text-[#A1A1AA] mt-2 max-w-2xl leading-relaxed">
-                {getCategoryDescription()}
-              </p>
-            </div>
+        <div className="border-b border-[rgba(43,39,33,0.14)] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#9a6a3e] mb-2">
+              Studio Collections
+            </p>
+            <h1 className="sb-display text-4xl sm:text-5xl text-[#2b2721]">
+              {getCategoryTitle()}
+            </h1>
+            <p className="sb-prose text-base sm:text-lg text-[rgba(43,39,33,0.74)] mt-2 max-w-2xl">
+              {getCategoryDescription()}
+            </p>
+          </div>
 
-            <div className="text-xs font-mono text-[#8E8E93] bg-[#161618] px-3.5 py-2 rounded border border-[#27272A] self-start md:self-auto">
-              Showing <strong className="text-[#F5F3EF]">{filteredItems.length}</strong> of {allProducts.length} creations
-            </div>
+          <div className="text-xs uppercase tracking-[0.16em] text-[rgba(43,39,33,0.7)] bg-[#faf7ef] px-4 py-2 border border-[rgba(43,39,33,0.16)] rounded-sm self-start md:self-auto shrink-0 tabular-nums">
+            Showing <strong className="text-[#784f2b]">{filteredItems.length}</strong> of{' '}
+            {allProducts.length} editions
           </div>
         </div>
       </div>
 
-      {/* Filter and Control Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
-        <div className="bg-[#141416] border border-[#242428] rounded-xl p-4 space-y-4">
-          {/* Dynamic Category Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+      {/* Filter Bar */}
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 mb-8">
+        <div className="bg-[#f7f3e9] border border-[rgba(43,39,33,0.16)] rounded-sm p-4 sm:p-5 space-y-4">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {categoryTabs.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`px-3.5 py-2 text-[11px] uppercase tracking-[0.16em] rounded-sm transition-colors whitespace-nowrap shrink-0 cursor-pointer border ${
                   selectedCategory === cat.id
-                    ? 'bg-[#E7A96B] text-[#101010] font-semibold shadow-sm'
-                    : 'bg-[#1C1C20] text-[#A1A1AA] hover:text-[#F5F3EF] hover:bg-[#25252A]'
+                    ? 'bg-[#2b2721] text-[#faf7ef] border-[#2b2721]'
+                    : 'bg-[#faf7ef] text-[rgba(43,39,33,0.72)] hover:text-[#2b2721] border-[rgba(43,39,33,0.16)]'
                 }`}
               >
                 {cat.label}
@@ -131,50 +129,42 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             ))}
           </div>
 
-          {/* Secondary Filter Dropdowns & Sorting */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#222226] text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[rgba(43,39,33,0.12)] text-xs">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[#71717A] flex items-center gap-1 font-mono">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Filters:</span>
+              <span className="text-[rgba(43,39,33,0.6)] flex items-center gap-1.5 uppercase text-[11px] tracking-[0.14em]">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#9a6a3e]" />
+                <span>Filters</span>
               </span>
 
-              {/* Function Type */}
-              <div className="flex items-center gap-1 bg-[#1A1A1E] px-2.5 py-1 rounded border border-[#2A2A30]">
-                <span className="text-[#8E8E93]">Type:</span>
-                <select
-                  value={selectedFunctionType}
-                  onChange={(e) => setSelectedFunctionType(e.target.value as any)}
-                  className="bg-transparent text-[#F5F3EF] focus:outline-none cursor-pointer"
-                >
-                  <option value="all" className="bg-[#1A1A1E]">All Types</option>
-                  <option value="functional" className="bg-[#1A1A1E]">Functional</option>
-                  <option value="decorative" className="bg-[#1A1A1E]">Decorative</option>
-                  <option value="hybrid" className="bg-[#1A1A1E]">Hybrid</option>
-                </select>
-              </div>
+              <select
+                value={selectedFunctionType}
+                onChange={(e) => setSelectedFunctionType(e.target.value as any)}
+                className="bg-[#faf7ef] text-[#2b2721] px-3 py-1.5 border border-[rgba(43,39,33,0.18)] rounded-sm text-xs focus:outline-none cursor-pointer"
+                aria-label="Filter by product type"
+              >
+                <option value="all">All Types</option>
+                <option value="functional">Functional</option>
+                <option value="decorative">Decorative</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
 
-              {/* Material */}
-              <div className="flex items-center gap-1 bg-[#1A1A1E] px-2.5 py-1 rounded border border-[#2A2A30]">
-                <span className="text-[#8E8E93]">Filament:</span>
-                <select
-                  value={selectedMaterial}
-                  onChange={(e) => setSelectedMaterial(e.target.value as any)}
-                  className="bg-transparent text-[#F5F3EF] focus:outline-none cursor-pointer"
-                >
-                  {materials.map((m) => (
-                    <option key={m} value={m} className="bg-[#1A1A1E]">
-                      {m === 'all' ? 'All Materials' : m}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={selectedMaterial}
+                onChange={(e) => setSelectedMaterial(e.target.value as any)}
+                className="bg-[#faf7ef] text-[#2b2721] px-3 py-1.5 border border-[rgba(43,39,33,0.18)] rounded-sm text-xs focus:outline-none cursor-pointer"
+                aria-label="Filter by filament material"
+              >
+                {materials.map((m) => (
+                  <option key={m} value={m}>
+                    {m === 'all' ? 'All Materials' : m}
+                  </option>
+                ))}
+              </select>
 
-              {/* Reset Button */}
               {(selectedCategory !== 'all' || selectedFunctionType !== 'all' || selectedMaterial !== 'all') && (
                 <button
                   onClick={resetFilters}
-                  className="flex items-center gap-1 text-[#E7A96B] hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[#784f2b] hover:underline cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset</span>
@@ -182,13 +172,12 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               )}
             </div>
 
-            {/* Sorting */}
             <div className="flex items-center gap-2">
-              <span className="text-[#8E8E93]">Sort by:</span>
+              <span className="text-[rgba(43,39,33,0.6)] text-xs">Sort:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-[#1A1A1E] text-[#F5F3EF] px-2.5 py-1 rounded border border-[#2A2A30] focus:outline-none cursor-pointer"
+                className="bg-[#faf7ef] text-[#2b2721] px-3 py-1.5 rounded-sm border border-[rgba(43,39,33,0.18)] text-xs focus:outline-none cursor-pointer"
               >
                 <option value="featured">Featured First</option>
                 <option value="newest">Newest Releases</option>
@@ -200,24 +189,24 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         </div>
       </div>
 
-      {/* Product Grid or Polished Empty State */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Product Grid */}
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
         {filteredItems.length === 0 ? (
-          <div className="text-center py-24 bg-[#141416] rounded-xl border border-[#242428] p-8 max-w-2xl mx-auto space-y-4">
-            <div className="w-12 h-12 rounded-full bg-[#1C1C20] border border-[#28282E] flex items-center justify-center mx-auto text-[#E7A96B]">
-              <Sparkles className="w-6 h-6" />
+          <div className="text-center py-20 bg-[#f7f3e9] rounded-sm border border-[rgba(43,39,33,0.14)] p-8 max-w-2xl mx-auto space-y-4">
+            <div className="w-12 h-12 rounded-sm bg-[#faf7ef] border border-[rgba(43,39,33,0.16)] flex items-center justify-center mx-auto text-[#9a6a3e]">
+              <Sparkles className="w-5 h-5" />
             </div>
-            <h2 className="text-2xl font-bold text-[#F5F3EF]">
-              Something exciting is taking shape.
+            <h2 className="sb-display text-3xl text-[#2b2721]">
+              New editions coming soon.
             </h2>
-            <p className="text-sm text-[#A1A1AA] leading-relaxed max-w-md mx-auto">
-              New creations will appear here soon. Our studio is continuously slicing and printing bespoke pieces.
+            <p className="sb-prose text-base text-[rgba(43,39,33,0.74)] max-w-md mx-auto">
+              No active items match those filters yet. Reset filters or commission a custom piece directly.
             </p>
             {onRequestCustom && (
               <div className="pt-2">
                 <button
                   onClick={onRequestCustom}
-                  className="px-5 py-2.5 bg-[#E7A96B] hover:bg-[#F2BA82] text-[#101010] text-xs font-semibold rounded-md transition-colors cursor-pointer"
+                  className="px-6 py-3 bg-[#2b2721] hover:bg-[#784f2b] text-[#faf7ef] text-xs uppercase tracking-[0.18em] rounded-sm transition-colors cursor-pointer"
                 >
                   Commission a Custom Print
                 </button>
@@ -225,7 +214,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((product) => (
               <div key={product.id} className="flex justify-center">
                 <ProductCard

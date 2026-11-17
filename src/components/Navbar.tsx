@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bookmark, ShoppingBag, Menu, X, ArrowUpRight, ShieldCheck, Instagram } from 'lucide-react';
+import { Search, Bookmark, ShoppingBag, ArrowUpRight, ShieldCheck, Instagram, X, Menu } from 'lucide-react';
 import { INSTAGRAM_PROFILE_URL, INSTAGRAM_USERNAME } from '../lib/config';
 
 interface NavbarProps {
@@ -28,38 +28,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateToAdmin,
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    let previousY = typeof window !== 'undefined' ? window.scrollY : 0;
-
     const handleScroll = () => {
-      const currentY = window.scrollY;
-      setIsScrolled(currentY > 20);
-
-      // Always show at top of page
-      if (currentY <= 30) {
-        setIsHeaderVisible(true);
-      } else if (currentY > previousY + 8 && currentY > 60) {
-        // Scrolling down -> hide header on mobile to reveal content
-        setIsHeaderVisible(false);
-      } else if (currentY < previousY - 6) {
-        // Scrolling up -> reveal header smoothly
-        setIsHeaderVisible(true);
-      }
-      previousY = currentY;
+      setIsScrolled(window.scrollY > 18);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const navLinks: { label: string; view: 'home' | 'collections' | 'custom' | 'about' }[] = [
-    { label: 'Discover', view: 'home' },
+  const navLinks: {
+    label: string;
+    view: 'home' | 'collections' | 'custom' | 'about';
+  }[] = [
+    { label: 'Catalogue', view: 'home' },
     { label: 'Collections', view: 'collections' },
     { label: 'Custom Prints', view: 'custom' },
-    { label: 'About', view: 'about' },
+    { label: 'Studio', view: 'about' },
   ];
 
   const handleLinkClick = (view: 'home' | 'collections' | 'custom' | 'about') => {
@@ -70,277 +56,243 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-40 transition-transform duration-300 ease-in-out ${
-          !isHeaderVisible && !mobileMenuOpen ? '-translate-y-full md:translate-y-0' : 'translate-y-0'
-        } ${
+        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
           isScrolled
-            ? 'bg-[#101010]/95 backdrop-blur-md border-b border-[#242424] py-3 shadow-2xl'
-            : 'bg-gradient-to-b from-[#101010]/95 via-[#101010]/80 to-transparent py-4'
+            ? 'bg-[rgba(245,241,232,0.9)] backdrop-blur-md border-b border-[rgba(43,39,33,0.12)] shadow-[0_6px_24px_rgba(43,39,33,0.06)]'
+            : 'bg-gradient-to-b from-[rgba(236,231,220,0.92)] via-[rgba(236,231,220,0.72)] to-transparent'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 sm:gap-8">
-            {/* Zone 1: Brand Wordmark with 3D Filament Emblem Logo */}
-            <button
-              onClick={() => handleLinkClick('home')}
-              className="flex items-center gap-2.5 sm:gap-3 text-left focus:outline-none group shrink-0 cursor-pointer"
-              aria-label="AV Creation Home"
-            >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-                <img
-                  src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
-                  alt="AV Creations 3D Studio Logo"
-                  className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(231,169,107,0.2)]"
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm sm:text-lg font-extrabold tracking-wider text-[#F5F3EF] uppercase">
-                  AV CREATIONS
-                </span>
-                <span className="text-[9px] sm:text-[10px] tracking-widest text-[#E7A96B] uppercase font-mono -mt-1 font-semibold">
-                  3D Studio · Additive Craft
-                </span>
-              </div>
-            </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 h-16 sm:h-[72px] flex items-center justify-between gap-4 sm:gap-8">
+          {/* Zone 1: Brand Wordmark with AV Creations Logo */}
+          <button
+            onClick={() => handleLinkClick('home')}
+            className="flex items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#784f2b] rounded-sm shrink-0 cursor-pointer"
+            aria-label="AV Creations Home"
+          >
+            <img
+              src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
+              alt="AV Creations"
+              className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
+            />
+            <span className="sb-display text-xl sm:text-2xl tracking-[0.02em] text-[#2b2721] whitespace-nowrap">
+              AV Creations
+            </span>
+          </button>
 
-            {/* Zone 2: Navigation Links (Desktop) */}
-            <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
-              {navLinks.map((link) => {
-                const isActive = activeView === link.view;
-                return (
-                  <button
-                    key={link.view}
-                    onClick={() => handleLinkClick(link.view)}
-                    className={`relative py-1 transition-colors whitespace-nowrap text-sm cursor-pointer ${
-                      isActive
-                        ? 'text-[#F5F3EF] font-semibold'
-                        : 'text-[#A6A6A6] hover:text-[#F5F3EF]'
-                    }`}
-                  >
-                    {link.label}
-                    {isActive && (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#E7A96B] rounded-full" />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Zone 3: Actions (Instagram, Search, Favorites, Admin Portal, Request Custom CTA) */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              {/* Instagram Profile Trigger */}
-              <a
-                href={INSTAGRAM_PROFILE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 text-[#A6A6A6] hover:text-[#E7A96B] hover:bg-[#1E1E1E] rounded-md transition-colors flex items-center justify-center cursor-pointer group"
-                aria-label={`Visit AV Creations Instagram profile (@${INSTAGRAM_USERNAME})`}
-                title={`Instagram (@${INSTAGRAM_USERNAME})`}
-              >
-                <Instagram className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              </a>
-
-              {/* Search Trigger */}
-              <button
-                onClick={onOpenSearch}
-                className="p-2 text-[#A6A6A6] hover:text-[#F5F3EF] hover:bg-[#1E1E1E] rounded-md transition-colors flex items-center gap-2 cursor-pointer"
-                aria-label="Search creations"
-                title="Search creations (/)"
-              >
-                <Search className="w-4 h-4" />
-                <span className="hidden lg:inline text-xs text-[#737373] font-mono border border-[#2D2D2D] px-1.5 py-0.5 rounded">
-                  /
-                </span>
-              </button>
-
-              {/* Saved Items / Favorites Trigger */}
-              <button
-                onClick={onOpenFavorites}
-                className="relative p-2 text-[#A6A6A6] hover:text-[#F5F3EF] hover:bg-[#1E1E1E] rounded-md transition-colors cursor-pointer"
-                aria-label={`View saved creations (${favoritesCount})`}
-                title="Saved creations"
-              >
-                <Bookmark className="w-4 h-4" />
-                {favoritesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E7A96B] text-[#101010] text-[10px] font-bold flex items-center justify-center">
-                    {favoritesCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Shopping Cart Trigger */}
-              <button
-                onClick={onOpenCart}
-                className="relative p-2 text-[#A6A6A6] hover:text-[#F5F3EF] hover:bg-[#1E1E1E] rounded-md transition-colors cursor-pointer"
-                aria-label={`View shopping cart (${cartCount})`}
-                title="Shopping Cart"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-[#101010] text-[10px] font-mono font-bold flex items-center justify-center shadow-xs">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Admin Dashboard shortcut for verified admins */}
-              {isAdmin && onNavigateToAdmin && (
-                <button
-                  onClick={onNavigateToAdmin}
-                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-mono font-semibold text-[#E7A96B] bg-[#1E1E22] hover:bg-[#2A2A30] border border-[#E7A96B]/40 rounded-md transition-colors cursor-pointer"
-                  title="Go to Admin Dashboard"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Admin</span>
-                </button>
-              )}
-
-              {/* Primary Action Button */}
-              <button
-                onClick={onRequestCustom}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#101010] bg-[#E7A96B] hover:bg-[#F0B87E] rounded-md transition-all shadow-sm hover:shadow-md hover:shadow-[#E7A96B]/20 active:scale-95 whitespace-nowrap cursor-pointer"
-              >
-                <span>Custom Print</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-[#A6A6A6] hover:text-[#F5F3EF] hover:bg-[#1E1E1E] rounded-md cursor-pointer"
-                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Zone 4: Mobile Touch-Scrollable Moving Navigation Strip */}
-          <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar py-2 border-t border-[#24242A]/80 mt-2.5 -mx-4 px-4 scroll-smooth">
+          {/* Zone 2: Clean Single-Line Editorial Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-7" aria-label="Primary navigation">
             {navLinks.map((link) => {
               const isActive = activeView === link.view;
               return (
                 <button
                   key={link.view}
                   onClick={() => handleLinkClick(link.view)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                  className={`relative py-1 text-[15px] tracking-[0.04em] whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                     isActive
-                      ? 'bg-[#E7A96B] text-[#101010] font-bold shadow-xs'
-                      : 'bg-[#18181C] text-[#A6A6A6] hover:text-[#F5F3EF] border border-[#27272D]'
+                      ? 'text-[#2b2721] font-medium'
+                      : 'text-[rgba(43,39,33,0.64)] hover:text-[#2b2721]'
                   }`}
                 >
-                  {link.label}
+                  <span>{link.label}</span>
+                  {isActive && (
+                    <span
+                      className="absolute left-0 right-0 bottom-0 h-[1.5px] bg-[#9a6a3e]"
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               );
             })}
-            <button
-              onClick={() => {
-                onRequestCustom();
-                setMobileMenuOpen(false);
-              }}
-              className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap bg-[#E7A96B]/15 text-[#E7A96B] border border-[#E7A96B]/30 shrink-0 cursor-pointer"
-            >
-              + Custom Print
-            </button>
+          </nav>
+
+          {/* Zone 3: Action Icons & Primary Custom Print CTA */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <a
               href={INSTAGRAM_PROFILE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#18181C] text-[#A6A6A6] hover:text-[#E7A96B] border border-[#27272D] shrink-0 flex items-center gap-1.5 cursor-pointer"
+              className="p-2 text-[rgba(43,39,33,0.65)] hover:text-[#2b2721] rounded-sm transition-colors cursor-pointer"
+              aria-label={`Visit AV Creations Instagram profile (@${INSTAGRAM_USERNAME})`}
+              title={`Instagram (@${INSTAGRAM_USERNAME})`}
             >
-              <Instagram className="w-3 h-3 text-[#E7A96B]" />
-              <span>@{INSTAGRAM_USERNAME}</span>
+              <Instagram className="w-4 h-4" />
             </a>
+
+            <button
+              onClick={onOpenSearch}
+              className="p-2 text-[rgba(43,39,33,0.65)] hover:text-[#2b2721] rounded-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+              aria-label="Search creations"
+              title="Search catalogue (/)"
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden xl:inline text-[10px] font-mono text-[rgba(43,39,33,0.52)] border border-[rgba(43,39,33,0.18)] px-1.5 py-0.5 rounded-sm">
+                /
+              </span>
+            </button>
+
+            <button
+              onClick={onOpenFavorites}
+              className="relative p-2 text-[rgba(43,39,33,0.65)] hover:text-[#2b2721] rounded-sm transition-colors cursor-pointer"
+              aria-label={`View saved creations (${favoritesCount})`}
+              title="Saved creations"
+            >
+              <Bookmark className="w-4 h-4" />
+              {favoritesCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#9a6a3e] text-[#faf7ef] text-[10px] font-semibold tabular-nums flex items-center justify-center">
+                  {favoritesCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={onOpenCart}
+              className="relative p-2 text-[rgba(43,39,33,0.65)] hover:text-[#2b2721] rounded-sm transition-colors cursor-pointer"
+              aria-label={`View shopping cart (${cartCount})`}
+              title="Shopping Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#2b2721] text-[#faf7ef] text-[10px] font-semibold tabular-nums flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {isAdmin && onNavigateToAdmin && (
+              <button
+                onClick={onNavigateToAdmin}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-[#784f2b] border border-[rgba(154,106,62,0.4)] bg-[rgba(250,247,239,0.75)] hover:border-[#784f2b] rounded-sm transition-colors cursor-pointer whitespace-nowrap"
+                title="Go to Admin Dashboard"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
+
+            <button
+              onClick={onRequestCustom}
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-[#faf7ef] bg-[#2b2721] hover:bg-[#784f2b] rounded-sm transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <span>Custom Print</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 text-[#2b2721] rounded-sm cursor-pointer"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Menu Drawer with Smooth Scroll & Backdrop */}
+      {/* Mobile Fullscreen Editorial Sheet Drawer */}
       {mobileMenuOpen && (
-        <>
-          {/* Backdrop Click Dismiss */}
-          <div
-            className="fixed inset-0 z-30 bg-black/75 backdrop-blur-xs md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-hidden="true"
-          />
+        <div
+          className="fixed inset-0 z-50 bg-[#ece7dc]/98 backdrop-blur-lg flex flex-col justify-between p-6 pt-6 pb-10 lg:hidden overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation menu"
+        >
+          <div className="flex items-center justify-between pb-4 border-b border-[rgba(43,39,33,0.14)]">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
+                alt="AV Creations"
+                className="w-8 h-8 object-contain"
+              />
+              <span className="sb-display text-xl text-[#2b2721]">AV Creations</span>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-sm border border-[rgba(43,39,33,0.18)] text-[#2b2721] cursor-pointer"
+              aria-label="Close mobile menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-          <div className="fixed inset-x-0 top-[100px] z-35 bg-[#141416] border-b border-[#242428] px-6 py-6 flex flex-col gap-4 md:hidden max-h-[calc(100dvh-100px)] overflow-y-auto overscroll-contain shadow-2xl animate-in fade-in slide-in-from-top-3 duration-200">
-            <div className="flex flex-col gap-2">
-              {navLinks.map((link) => (
+          <div className="my-auto py-8 flex flex-col divide-y divide-[rgba(43,39,33,0.12)]">
+            {navLinks.map((link, idx) => {
+              const isActive = activeView === link.view;
+              return (
                 <button
                   key={link.view}
                   onClick={() => handleLinkClick(link.view)}
-                  className={`text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeView === link.view
-                      ? 'bg-[#E7A96B] text-[#101010] font-bold shadow-xs'
-                      : 'text-[#A6A6A6] hover:bg-[#1E1E22] hover:text-[#F5F3EF]'
-                  }`}
+                  className="py-5 flex items-baseline justify-between text-left cursor-pointer group"
                 >
-                  {link.label}
+                  <div className="flex items-baseline gap-4">
+                    <span className="text-xs tabular-nums text-[rgba(43,39,33,0.5)]">
+                      0{idx + 1}
+                    </span>
+                    <span
+                      className={`sb-display text-3xl ${
+                        isActive ? 'text-[#784f2b] italic' : 'text-[#2b2721]'
+                      }`}
+                    >
+                      {link.label}
+                    </span>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-[rgba(43,39,33,0.48)]" />
                 </button>
-              ))}
-              {isAdmin && onNavigateToAdmin && (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onNavigateToAdmin();
-                  }}
-                  className="text-left px-3.5 py-2.5 rounded-lg text-sm font-medium text-[#E7A96B] bg-[#1E1E22] hover:bg-[#2A2A30] flex items-center gap-2 cursor-pointer border border-[#E7A96B]/30"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Admin Dashboard</span>
-                </button>
-              )}
-            </div>
+              );
+            })}
 
-            <div className="pt-3 border-t border-[#262626] flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenCart();
-                  }}
-                  className="flex items-center gap-2 text-sm text-[#A6A6A6] hover:text-[#F5F3EF] cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                  <span>Cart ({cartCount})</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenFavorites();
-                  }}
-                  className="flex items-center gap-2 text-sm text-[#A6A6A6] hover:text-[#F5F3EF] cursor-pointer"
-                >
-                  <Bookmark className="w-4 h-4 text-[#E7A96B]" />
-                  <span>Saved ({favoritesCount})</span>
-                </button>
-              </div>
-
-              <a
-                href={INSTAGRAM_PROFILE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold text-[#F5F3EF] hover:text-[#FFFFFF] bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] transition-opacity cursor-pointer shadow-sm"
-              >
-                <Instagram className="w-4 h-4" />
-                <span>Follow @{INSTAGRAM_USERNAME} on Instagram</span>
-              </a>
-
+            {isAdmin && onNavigateToAdmin && (
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  onRequestCustom();
+                  onNavigateToAdmin();
                 }}
-                className="w-full py-2.5 text-xs font-bold text-[#101010] bg-[#E7A96B] hover:bg-[#F0B87E] rounded-lg text-center cursor-pointer shadow-md"
+                className="py-5 flex items-center justify-between text-left text-[#784f2b] cursor-pointer"
               >
-                Request Custom Order
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-5 h-5" />
+                  <span className="sb-display text-2xl">Admin Portal</span>
+                </div>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="pt-5 border-t border-[rgba(43,39,33,0.14)] space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenCart();
+                }}
+                className="py-3 px-4 border border-[rgba(43,39,33,0.2)] bg-[#faf7ef] text-xs uppercase tracking-[0.14em] text-[#2b2721] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ShoppingBag className="w-4 h-4 text-[#9a6a3e]" />
+                <span>Cart ({cartCount})</span>
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenFavorites();
+                }}
+                className="py-3 px-4 border border-[rgba(43,39,33,0.2)] bg-[#faf7ef] text-xs uppercase tracking-[0.14em] text-[#2b2721] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Bookmark className="w-4 h-4 text-[#9a6a3e]" />
+                <span>Saved ({favoritesCount})</span>
               </button>
             </div>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onRequestCustom();
+              }}
+              className="w-full py-3.5 text-xs uppercase tracking-[0.18em] text-[#faf7ef] bg-[#2b2721] hover:bg-[#784f2b] transition-colors cursor-pointer"
+            >
+              Request Custom Print
+            </button>
           </div>
-        </>
+        </div>
       )}
     </>
   );

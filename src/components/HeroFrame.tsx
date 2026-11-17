@@ -97,14 +97,14 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
           loading={priority ? 'eager' : 'lazy'}
         />
         {/* Left and Bottom Vignette Fade into Dark Studio Background */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#101010] via-transparent to-transparent w-full" />
-        <div className="absolute inset-x-0 bottom-0 h-28 pointer-events-none bg-gradient-to-t from-[#101010] to-transparent" />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#05070a] via-transparent to-transparent w-full" />
+        <div className="absolute inset-x-0 bottom-0 h-28 pointer-events-none bg-gradient-to-t from-[#05070a] to-transparent" />
 
         {/* Optional Info Tag */}
         {options.infoTag && infoTagContent && (
-          <div className="absolute bottom-6 left-6 z-20 px-3.5 py-1.5 rounded-full bg-black/65 backdrop-blur-md border border-white/10 text-xs font-mono text-[#F5F3EF] shadow-xl flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E7A96B]" />
-            <span className="font-semibold">{infoTagContent}</span>
+          <div className="absolute bottom-6 left-6 z-20 px-3.5 py-1.5 rounded-sm bg-[#05070a]/80 backdrop-blur-md border border-[rgba(223,231,224,0.16)] text-xs font-mono text-[#dfe7e0] shadow-xl flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#e0231c]" />
+            <span className="font-medium tracking-wider">{infoTagContent}</span>
           </div>
         )}
       </div>
@@ -144,9 +144,9 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
 
         {/* Optional Info Tag */}
         {options.infoTag && infoTagContent && (
-          <div className="absolute bottom-4 left-6 z-20 px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-md border border-white/10 text-xs font-mono text-[#F5F3EF] shadow-xl flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E7A96B]" />
-            <span className="font-semibold">{infoTagContent}</span>
+          <div className="absolute bottom-4 left-6 z-20 px-3.5 py-1.5 rounded-sm bg-[#05070a]/85 backdrop-blur-md border border-[rgba(223,231,224,0.16)] text-xs font-mono text-[#dfe7e0] shadow-xl flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#e0231c]" />
+            <span className="font-medium tracking-wider">{infoTagContent}</span>
           </div>
         )}
       </div>
@@ -161,10 +161,10 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
       <div
         ref={containerRef}
         style={cssVariables}
-        className={`relative w-full max-w-[500px] mx-auto p-4 sm:p-5 pb-8 sm:pb-10 bg-[#F4F3EF] text-[#141416] rounded-xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] border border-[#E5E4E0] select-none ${className}`}
+        className={`relative w-full max-w-[500px] mx-auto p-4 sm:p-5 pb-8 sm:pb-10 bg-[#dfe7e0] text-[#05070a] rounded-sm shadow-[0_25px_60px_rgba(0,0,0,0.9)] border border-[#c8d2ca] select-none ${className}`}
         onClick={handleImageClick}
       >
-        <div className={`relative w-full overflow-hidden rounded bg-[#101012] border border-black/10 ${ratioClass}`}>
+        <div className={`relative w-full overflow-hidden rounded-sm bg-[#0a0e12] border border-black/15 ${ratioClass}`}>
           <img
             src={displayImage}
             alt={title || category || 'Studio Gallery'}
@@ -174,12 +174,12 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
           />
         </div>
 
-        <div className="mt-3.5 flex items-center justify-between text-xs font-mono text-[#444] px-1">
-          <span className="font-bold text-[#141416] tracking-wider uppercase">
+        <div className="mt-3.5 flex items-center justify-between text-xs font-mono text-[#323834] px-1">
+          <span className="font-semibold text-[#05070a] tracking-wider uppercase">
             {title || category || 'AV Creations Studio'}
           </span>
           {price !== undefined && price !== null && (
-            <span className="font-bold text-[#B36B2E]">{formatPriceINR(price)}</span>
+            <span className="font-bold text-[#9e3124]">{formatPriceINR(price)}</span>
           )}
         </div>
       </div>
@@ -187,9 +187,7 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
   }
 
   // -------------------------------------------------------------
-  // STYLE VARIANT 4 (DEFAULT): FRAMED CARD
-  // Dark panel background (#17171a), 1px border (#2a2a2f), soft deep shadow,
-  // Layer 1 blurred scaled copy, Layer 2 contained foreground image with padding.
+  // STYLE VARIANT 4 (DEFAULT): FRAMED CARD (Kage Obsidian Framing)
   // -------------------------------------------------------------
   return (
     <div
@@ -198,8 +196,8 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
         ...cssVariables,
         borderRadius: 'var(--frame-radius)',
       }}
-      className={`group relative w-full max-w-[540px] mx-auto overflow-hidden border border-[#2a2a2f] bg-[#17171a] select-none transition-all duration-300 ${ratioClass} ${
-        options.shadow ? 'shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)]' : ''
+      className={`group relative w-full max-w-[540px] mx-auto overflow-hidden border border-[rgba(223,231,224,0.14)] bg-[#0a0e12]/90 backdrop-blur-md select-none transition-all duration-300 hover:border-[rgba(223,231,224,0.3)] ${ratioClass} ${
+        options.shadow ? 'shadow-[0_32px_70px_-20px_rgba(0,0,0,0.92)]' : ''
       } ${className}`}
       onClick={handleImageClick}
     >
@@ -225,17 +223,16 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
             }}
             className="w-full h-full object-cover select-none"
           />
-          {/* Subtle dark tint overlay to guarantee contrast */}
-          <div className="absolute inset-0 bg-black/40 backdrop-contrast-125" />
+          <div className="absolute inset-0 bg-[#05070a]/50 backdrop-contrast-125" />
         </div>
       )}
 
       {options.backdrop === 'glow' && (
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(231,169,107,0.22)_0%,rgba(20,20,24,0.9)_70%,#17171a_100%)]" />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(231,169,107,0.18)_0%,rgba(224,35,28,0.08)_38%,rgba(10,14,18,0.92)_74%,#05070a_100%)]" />
       )}
 
       {options.backdrop === 'solid' && (
-        <div className="absolute inset-0 pointer-events-none bg-[#17171a]" />
+        <div className="absolute inset-0 pointer-events-none bg-[#0a0e12]" />
       )}
 
       {/* LAYER 2: FOREGROUND IMAGE (contained or covered with padding & corner radius) */}
@@ -253,7 +250,7 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
           className={`w-full h-full ${
             effectiveFit === 'cover' ? 'object-cover' : 'object-contain'
           } transition-transform duration-500 group-hover:scale-[1.02] ${
-            options.shadow ? 'drop-shadow-[0_12px_28px_rgba(0,0,0,0.7)]' : ''
+            options.shadow ? 'drop-shadow-[0_14px_30px_rgba(0,0,0,0.75)]' : ''
           }`}
           loading={priority ? 'eager' : 'lazy'}
         />
@@ -304,9 +301,9 @@ export const HeroFrame: React.FC<HeroFrameProps> = ({
 
       {/* OPTIONAL GLASS INFO TAG AT BOTTOM-LEFT */}
       {options.infoTag && infoTagContent && (
-        <div className="absolute bottom-4 left-4 z-20 max-w-[85%] px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-mono text-[#F5F3EF] shadow-xl flex items-center gap-2 truncate">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#E7A96B] shrink-0" />
-          <span className="font-semibold tracking-wide truncate">{infoTagContent}</span>
+        <div className="absolute bottom-4 left-4 z-20 max-w-[85%] px-3.5 py-1.5 rounded-sm bg-[#05070a]/80 backdrop-blur-md border border-[rgba(223,231,224,0.16)] text-xs font-mono text-[#dfe7e0] shadow-xl flex items-center gap-2 truncate">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#e0231c] shrink-0" />
+          <span className="font-medium tracking-wider truncate">{infoTagContent}</span>
         </div>
       )}
     </div>

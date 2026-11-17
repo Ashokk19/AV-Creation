@@ -8,7 +8,8 @@ export interface InstagramOrderValidation {
 }
 
 /**
- * Validates whether the cart can be checked out via Instagram
+ * Validates whether the cart can be checked out via Instagram.
+ * Items without a fixed price are allowed and will automatically ask for a quote in the message.
  */
 export function validateCartForInstagram(items: CartItem[]): InstagramOrderValidation {
   if (!items || items.length === 0) {
@@ -19,45 +20,19 @@ export function validateCartForInstagram(items: CartItem[]): InstagramOrderValid
     };
   }
 
-  // Check if any products lack a numeric price
   const unpriced = items
     .filter((item) => item.product.price === null || item.product.price === undefined || isNaN(item.product.price))
     .map((item) => item.product.title);
 
-  if (unpriced.length > 0) {
-    return {
-      isValid: false,
-      errorMessage: `The following item${unpriced.length > 1 ? 's do' : ' does'} not have a fixed price yet (${unpriced.join(', ')}). Please remove ${unpriced.length > 1 ? 'them' : 'it'} or request a custom commission.`,
-      unpricedProducts: unpriced,
-    };
-  }
-
   return {
     isValid: true,
-    unpricedProducts: [],
+    unpricedProducts: unpriced,
   };
 }
 
 /**
- * Builds the structured Instagram Direct Message text:
- *
- * Hi! I'd like to place an order.
- *
- * Order Details:
- *
- * 1. Articulated Dragon
- *    - Quantity: 2
- *    - Price: ₹300
- *    - Subtotal: ₹600
- *
- * 2. Lotus Lamp
- *    - Quantity: 1
- *    - Price: ₹450
- *    - Subtotal: ₹450
- *
- * Total: ₹1,050
- *
- * Please let me know how to proceed with the order.
+ * Builds the structured Instagram Direct Message text, handling both fixed-price
+ * items and unpriced items ("please share the price").
  */
 export function generateInstagramOrderMessage(items: CartItem[]): string {
   const lines: string[] = [
@@ -68,23 +43,45 @@ export function generateInstagramOrderMessage(items: CartItem[]): string {
   ];
 
   let grandTotal = 0;
+  let hasPricedItem = false;
+  const unpricedTitles: string[] = [];
 
   items.forEach((item, index) => {
-    const unitPrice = typeof item.product.price === 'number' && !isNaN(item.product.price) ? item.product.price : 0;
-    const subtotal = unitPrice * item.quantity;
-    grandTotal += subtotal;
-
+    const hasPrice =
+      typeof item.product.price === 'number' && !isNaN(item.product.price);
     const colorNote = item.selectedColor ? ` (${item.selectedColor.name})` : '';
     lines.push(`${index + 1}. ${item.product.title}${colorNote}`);
     lines.push(`   - Quantity: ${item.quantity}`);
-    lines.push(`   - Price: ${formatPriceINR(unitPrice)}`);
-    lines.push(`   - Subtotal: ${formatPriceINR(subtotal)}`);
+
+    if (hasPrice) {
+      hasPricedItem = true;
+      const unitPrice = item.product.price as number;
+      const subtotal = unitPrice * item.quantity;
+      grandTotal += subtotal;
+      lines.push(`   - Price: ${formatPriceINR(unitPrice)}`);
+      lines.push(`   - Subtotal: ${formatPriceINR(subtotal)}`);
+    } else {
+      unpricedTitles.push(item.product.title);
+      lines.push('   - Price: Please share the price');
+    }
     lines.push('');
   });
 
-  lines.push(`Total: ${formatPriceINR(grandTotal)}`);
-  lines.push('');
-  lines.push('Please let me know how to proceed with the order.');
+  if (unpricedTitles.length === 0) {
+    lines.push(`Total: ${formatPriceINR(grandTotal)}`);
+    lines.push('');
+    lines.push('Please let me know how to proceed with the order.');
+  } else if (hasPricedItem) {
+    lines.push(
+      `Known Items Total: ${formatPriceINR(grandTotal)} (+ quote needed for: ${unpricedTitles.join(', ')})`
+    );
+    lines.push('');
+    lines.push('Please let me know the price for the unpriced item(s) and how to proceed with the order.');
+  } else {
+    lines.push('Total: Please share the price for the item(s) above.');
+    lines.push('');
+    lines.push('Please let me know the price and how to proceed with the order.');
+  }
 
   return lines.join('\n');
 }

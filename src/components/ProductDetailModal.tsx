@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Bookmark,
-  Layers,
-  Sparkles,
   Send,
   ChevronLeft,
   ChevronRight,
@@ -47,16 +45,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Touch swipe tracking state
   const touchStartXRef = useRef<number | null>(null);
   const thumbnailRowRef = useRef<HTMLDivElement>(null);
 
-  // Extract all product photos in order
   const galleryImages = getProductImages(product);
   const hasMultipleImages = galleryImages.length > 1;
   const currentImageUrl = galleryImages[activeImageIndex] || galleryImages[0] || '';
 
-  // Blurred background crossfade state for gallery stage
   const [bgCurrent, setBgCurrent] = useState<string>(currentImageUrl);
   const [bgPrevious, setBgPrevious] = useState<string | null>(null);
 
@@ -66,12 +61,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setBgCurrent(currentImageUrl);
       const timer = setTimeout(() => {
         setBgPrevious(null);
-      }, 400); // 0.4s fade transition
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [currentImageUrl, bgCurrent]);
 
-  // Reset state when product changes
   useEffect(() => {
     setQuantity(1);
     setActiveImageIndex(0);
@@ -80,7 +74,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setBgPrevious(null);
   }, [product?.id]);
 
-  // Scroll active thumbnail into view smoothly
   useEffect(() => {
     if (thumbnailRowRef.current && hasMultipleImages) {
       const activeThumb = thumbnailRowRef.current.children[activeImageIndex] as HTMLElement;
@@ -94,7 +87,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   }, [activeImageIndex, hasMultipleImages]);
 
-  // Gallery Navigation Handlers
   const handleNextImage = () => {
     if (!hasMultipleImages) return;
     setActiveImageIndex((prev) => calculateNextGalleryIndex(prev, galleryImages.length, 'next'));
@@ -105,7 +97,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setActiveImageIndex((prev) => calculateNextGalleryIndex(prev, galleryImages.length, 'prev'));
   };
 
-  // Mobile Touch Swipe Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!hasMultipleImages) return;
     touchStartXRef.current = e.touches[0].clientX;
@@ -123,7 +114,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     touchStartXRef.current = null;
   };
 
-  // Handle ESC and Arrow keys for gallery navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -143,31 +133,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const activeColor = product.availableColors?.[0] || {
     name: 'Standard',
-    hex: '#E7A96B',
+    hex: '#9a6a3e',
     filamentType: 'PLA+',
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 overflow-y-auto bg-[rgba(43,39,33,0.65)] backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-product-title"
     >
       <div
-        className="relative w-full max-w-5xl bg-[#141416] border border-[#27272A] rounded-xl shadow-2xl overflow-hidden my-auto text-[#F5F3EF] flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-5xl bg-[#f7f3e9] border border-[rgba(43,39,33,0.2)] rounded-sm shadow-[0_30px_80px_rgba(43,39,33,0.35)] overflow-hidden my-auto text-[#2b2721] flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Top Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#222226] bg-[#161618]">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#A1A1AA]">
-            <span>{product.categoryName}</span>
+        {/* Top Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(43,39,33,0.12)] bg-[#efe9da]">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[rgba(43,39,33,0.68)]">
+            <span className="text-[#784f2b] font-medium">{product.categoryName}</span>
             {hasMultipleImages && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="inline-flex items-center gap-1 text-[#F5F3EF]">
-                  <Images className="w-3 h-3 text-[#E7A96B]" />
+                <span className="inline-flex items-center gap-1 text-[#2b2721]">
+                  <Images className="w-3 h-3 text-[#9a6a3e]" />
                   <span>{galleryImages.length} photos</span>
                 </span>
               </>
@@ -177,20 +167,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onToggleFavorite(product)}
-              className={`p-2 rounded-full border transition-colors ${
+              className={`p-2 rounded-sm border transition-colors cursor-pointer ${
                 isFavorite
-                  ? 'bg-[#E7A96B] text-[#101010] border-[#E7A96B]'
-                  : 'bg-[#1E1E22] text-[#A1A1AA] border-[#2E2E34] hover:text-[#FFFFFF]'
+                  ? 'bg-[#2b2721] text-[#faf7ef] border-[#2b2721]'
+                  : 'bg-[#faf7ef] text-[rgba(43,39,33,0.68)] border-[rgba(43,39,33,0.2)] hover:text-[#2b2721]'
               }`}
               aria-label={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
-              title={isFavorite ? 'Saved in favorites' : 'Save to favorites'}
+              title={isFavorite ? 'Saved in bookmarks' : 'Save to bookmarks'}
             >
               <Bookmark className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
             </button>
 
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-[#1E1E22] text-[#A1A1AA] hover:text-[#FFFFFF] border border-[#2E2E34] hover:bg-[#28282E] transition-colors"
+              className="p-2 rounded-sm bg-[#faf7ef] text-[rgba(43,39,33,0.68)] hover:text-[#2b2721] border border-[rgba(43,39,33,0.2)] transition-colors cursor-pointer"
               aria-label="Close dialog (Escape)"
             >
               <X className="w-4 h-4" />
@@ -198,19 +188,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body (Scrollable) */}
+        {/* Scrollable Content */}
         <div className="overflow-y-auto p-6 lg:p-8 flex-1 space-y-8">
-          {/* Main Grid: Visual Canvas & Product Intel */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Visual Canvas Column (7 Cols on desktop) */}
+            {/* Gallery Column */}
             <div className="lg:col-span-7 space-y-4">
-              {/* Main Large Visual Viewport with Swipe & Arrow Controls */}
+              {/* Preserved blurred photo stage behind uncropped sharp photo */}
               <div
-                className="group relative aspect-[4/3] sm:aspect-[16/11] min-h-[340px] sm:min-h-[440px] max-h-[580px] w-full rounded-lg overflow-hidden border border-[#27272A] bg-[#0E0E10] shadow-inner select-none touch-pan-y"
+                className="group relative aspect-[4/3] sm:aspect-[16/11] min-h-[320px] sm:min-h-[420px] max-h-[560px] w-full rounded-sm overflow-hidden border border-[rgba(43,39,33,0.18)] bg-[#141210] select-none touch-pan-y"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
               >
-                {/* Blurred, enlarged copy of the currently shown photo filling the whole image stage */}
                 {bgCurrent && (
                   <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     {bgPrevious && (
@@ -241,7 +229,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Sharp original photo centered on top with soft drop shadow */}
                 <PrintArtwork
                   product={product}
                   activeColor={activeColor}
@@ -252,7 +239,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   className="w-full h-full relative z-10"
                 />
 
-                {/* Left & Right Gallery Navigation Arrows (Desktop / Tablet) */}
                 {hasMultipleImages && (
                   <>
                     <button
@@ -261,9 +247,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         e.stopPropagation();
                         handlePrevImage();
                       }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#101012]/80 hover:bg-[#101012] text-[#F5F3EF] hover:text-[#E7A96B] border border-[#2D2D32] hover:border-[#E7A96B]/50 flex items-center justify-center backdrop-blur-md transition-all shadow-lg active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[rgba(250,247,239,0.9)] hover:bg-white text-[#2b2721] border border-[rgba(43,39,33,0.22)] flex items-center justify-center shadow-lg transition-all cursor-pointer"
                       aria-label="Previous photo"
-                      title="Previous photo (Left Arrow)"
                     >
                       <ChevronLeft className="w-5 h-5 -ml-0.5" />
                     </button>
@@ -274,35 +259,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         e.stopPropagation();
                         handleNextImage();
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[#101012]/80 hover:bg-[#101012] text-[#F5F3EF] hover:text-[#E7A96B] border border-[#2D2D32] hover:border-[#E7A96B]/50 flex items-center justify-center backdrop-blur-md transition-all shadow-lg active:scale-90 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-[rgba(250,247,239,0.9)] hover:bg-white text-[#2b2721] border border-[rgba(43,39,33,0.22)] flex items-center justify-center shadow-lg transition-all cursor-pointer"
                       aria-label="Next photo"
-                      title="Next photo (Right Arrow)"
                     >
                       <ChevronRight className="w-5 h-5 -mr-0.5" />
                     </button>
 
-                    {/* Gallery Photo Counter Badge - kept on top of everything (z-30) */}
-                    <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded bg-[#101012]/80 border border-[#2D2D32] backdrop-blur-md text-[11px] font-mono text-[#F5F3EF] flex items-center gap-1.5 shadow-md">
+                    <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded bg-[#181614]/85 border border-white/15 text-[11px] font-mono text-[#faf7ef] flex items-center gap-1.5 shadow-md">
                       <span className="text-[#E7A96B] font-bold">{activeImageIndex + 1}</span>
-                      <span className="text-[#71717A]">/</span>
-                      <span className="text-[#A1A1AA]">{galleryImages.length}</span>
+                      <span className="text-white/50">/</span>
+                      <span className="text-white/80">{galleryImages.length}</span>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Scrollable Gallery Thumbnail Strip (Rendered only when multiple images exist) */}
               {hasMultipleImages && (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] font-mono text-[#71717A] px-1">
-                    <span>PRODUCT GALLERY ({galleryImages.length} PHOTOS)</span>
-                    <span className="text-[#E7A96B]">Swipe or click thumbnail</span>
+                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-[rgba(43,39,33,0.58)] px-0.5">
+                    <span>Product Gallery ({galleryImages.length} Photos)</span>
+                    <span className="text-[#784f2b]">Swipe or click thumbnail</span>
                   </div>
 
                   <div
                     ref={thumbnailRowRef}
                     className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1 scroll-smooth no-scrollbar"
-                    style={{ scrollbarWidth: 'thin' }}
                   >
                     {galleryImages.map((imgUrl, idx) => {
                       const isSelected = activeImageIndex === idx;
@@ -311,10 +292,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           key={`${imgUrl}-${idx}`}
                           type="button"
                           onClick={() => setActiveImageIndex(idx)}
-                          className={`relative shrink-0 w-20 h-16 sm:w-24 sm:h-20 rounded-lg overflow-hidden border-2 transition-all cursor-pointer bg-[#0E0E10] ${
+                          className={`relative shrink-0 w-20 h-16 sm:w-24 sm:h-20 rounded-sm overflow-hidden border-2 transition-all cursor-pointer bg-[#f1ece0] ${
                             isSelected
-                              ? 'border-[#E7A96B] ring-2 ring-[#E7A96B]/30 scale-[1.02] shadow-lg shadow-[#E7A96B]/10 opacity-100'
-                              : 'border-[#27272A] opacity-60 hover:opacity-100 hover:border-[#3F3F46]'
+                              ? 'border-[#784f2b] ring-1 ring-[#9a6a3e] opacity-100'
+                              : 'border-[rgba(43,39,33,0.18)] opacity-65 hover:opacity-100'
                           }`}
                           aria-label={`View photo ${idx + 1}`}
                           aria-current={isSelected ? 'true' : 'false'}
@@ -325,17 +306,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             className="w-full h-full object-contain p-1"
                             loading="lazy"
                           />
-
-                          {/* Primary marker on first thumbnail */}
                           {idx === 0 && (
-                            <span className="absolute top-1 left-1 bg-[#101012]/85 text-[#E7A96B] text-[9px] font-mono px-1 py-0.2 rounded border border-[#E7A96B]/30 font-semibold">
+                            <span className="absolute top-1 left-1 bg-[#2b2721]/85 text-[#faf7ef] text-[9px] px-1 rounded-xs">
                               Cover
                             </span>
-                          )}
-
-                          {/* Current selected check dot */}
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-[#E7A96B]/10 pointer-events-none" />
                           )}
                         </button>
                       );
@@ -345,66 +319,66 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               )}
             </div>
 
-            {/* Product Intel Column (5 Cols on desktop) */}
-            <div className="lg:col-span-5 flex flex-col space-y-6">
+            {/* Product Details Column */}
+            <div className="lg:col-span-5 flex flex-col space-y-5">
               <div>
-                <h1 id="modal-product-title" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#F5F3EF]">
+                <h1 id="modal-product-title" className="sb-display text-3xl sm:text-4xl text-[#2b2721]">
                   {product.title}
                 </h1>
-                <p className="text-sm text-[#A1A1AA] mt-1">
-                  {product.subtitle}
-                </p>
+                {product.subtitle && (
+                  <p className="sb-prose italic text-base text-[rgba(43,39,33,0.68)] mt-1">
+                    {product.subtitle}
+                  </p>
+                )}
 
-                {/* Pricing Display */}
-                <div className="mt-3 flex items-baseline gap-2">
+                <div className="mt-3 flex items-baseline gap-2.5">
                   {product.price !== undefined && product.price !== null ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-mono font-extrabold text-[#E7A96B]">
+                    <>
+                      <span className="sb-display text-3xl text-[#784f2b] tabular-nums">
                         {formatPriceINR(product.price)}
                       </span>
-                      <span className="text-xs text-[#71717A] font-mono">per piece</span>
-                    </div>
+                      <span className="text-xs uppercase tracking-[0.14em] text-[rgba(43,39,33,0.56)]">
+                        per piece
+                      </span>
+                    </>
                   ) : (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#1C1C20] border border-[#2E2E36] text-xs font-mono text-[#A1A1AA]">
-                      <span>Price on request</span>
-                    </div>
+                    <span className="text-xs uppercase tracking-[0.14em] px-2.5 py-1 bg-[#faf7ef] border border-[rgba(43,39,33,0.18)] text-[#784f2b]">
+                      Price on request
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Storytelling Description */}
-              <div className="space-y-3 text-sm text-[#D4D4D8] leading-relaxed">
-                <p>{product.storyDescription}</p>
+              <div className="sb-prose text-base text-[rgba(43,39,33,0.84)] leading-relaxed border-t border-b border-[rgba(43,39,33,0.12)] py-4">
+                <p>{product.storyDescription || product.shortDescription}</p>
               </div>
 
-              {/* Action Buttons: Add to Cart & Custom Commission */}
-              <div className="pt-2 flex flex-col gap-3">
+              {/* Quantity & Cart Actions */}
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  {/* Quantity Selector */}
-                  <div className="flex items-center gap-2 bg-[#18181A] border border-[#27272A] rounded-lg p-1.5">
+                  <div className="flex items-center gap-2 bg-[#faf7ef] border border-[rgba(43,39,33,0.2)] rounded-sm p-1">
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
-                      className="w-8 h-8 rounded bg-[#141416] hover:bg-[#202026] text-[#A1A1AA] hover:text-[#FFFFFF] flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                      className="w-8 h-8 rounded-sm hover:bg-[#ece7dc] text-[#2b2721] flex items-center justify-center disabled:opacity-30 cursor-pointer"
                       aria-label="Decrease quantity"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="w-8 text-center font-mono font-bold text-sm text-[#F5F3EF]">
+                    <span className="w-8 text-center font-mono font-bold text-sm text-[#2b2721]">
                       {quantity}
                     </span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => q + 1)}
-                      className="w-8 h-8 rounded bg-[#141416] hover:bg-[#202026] text-[#A1A1AA] hover:text-[#FFFFFF] flex items-center justify-center cursor-pointer"
+                      className="w-8 h-8 rounded-sm hover:bg-[#ece7dc] text-[#2b2721] flex items-center justify-center cursor-pointer"
                       aria-label="Increase quantity"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  {/* Add to Cart CTA */}
                   {onAddToCart && (
                     <button
                       type="button"
@@ -412,7 +386,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         onAddToCart(product, quantity, activeColor);
                         onClose();
                       }}
-                      className="flex-1 py-3 px-4 bg-[#E7A96B] hover:bg-[#F2BA82] text-[#101010] font-bold text-xs uppercase tracking-wider rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 py-3 px-4 bg-[#2b2721] hover:bg-[#784f2b] text-[#faf7ef] font-medium text-xs uppercase tracking-[0.18em] rounded-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ShoppingBag className="w-4 h-4" />
                       <span>Add to Cart ({quantity})</span>
@@ -420,51 +394,45 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   )}
                 </div>
 
-                {/* Custom Commission Alternative */}
                 <button
                   type="button"
                   onClick={() => onRequestOrder(product, activeColor)}
-                  className="w-full py-2.5 px-4 bg-[#1C1C20] hover:bg-[#26262C] border border-[#2C2C32] text-[#D4D4D8] hover:text-white font-medium text-xs rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 bg-[#faf7ef] hover:bg-white border border-[rgba(43,39,33,0.22)] text-[#2b2721] font-medium text-xs uppercase tracking-[0.14em] rounded-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Send className="w-3.5 h-3.5 text-[#E7A96B]" />
+                  <Send className="w-3.5 h-3.5 text-[#9a6a3e]" />
                   <span>Request Custom Commission Brief</span>
                 </button>
-
-                <p className="text-center text-[11px] text-[#71717A]">
-                  Each piece is custom printed to order at our dedicated studio with verified tolerances.
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Related Creations Section */}
           {relatedProducts.length > 0 && (
-            <div className="pt-6 border-t border-[#222226]">
+            <div className="pt-6 border-t border-[rgba(43,39,33,0.12)]">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-[#F5F3EF]">
-                  Related Studio Works
-                </h3>
-                <span className="text-xs text-[#71717A] font-mono">Curated Selection</span>
+                <h3 className="sb-display text-2xl text-[#2b2721]">Related Studio Plates</h3>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-[rgba(43,39,33,0.56)]">
+                  Curated Selection
+                </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {relatedProducts.slice(0, 3).map((rel) => (
                   <div
                     key={rel.id}
                     onClick={() => onSelectRelated(rel)}
-                    className="flex items-center gap-3 p-2.5 rounded-lg bg-[#18181A] border border-[#27272A] hover:border-[#3E3E46] cursor-pointer transition-colors group"
+                    className="flex items-center gap-3 p-2.5 rounded-sm bg-[#faf7ef] border border-[rgba(43,39,33,0.16)] hover:border-[#784f2b] cursor-pointer transition-colors group"
                   >
-                    <div className="w-16 h-14 rounded overflow-hidden bg-[#101012] shrink-0">
-                      <PrintArtwork product={rel} className="w-full h-full" />
+                    <div className="w-16 h-14 rounded-sm overflow-hidden bg-[#f1ece0] shrink-0">
+                      <PrintArtwork product={rel} fitMode="contain" className="w-full h-full" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-semibold text-[#F5F3EF] group-hover:text-[#E7A96B] transition-colors truncate">
+                      <h4 className="sb-display text-lg text-[#2b2721] group-hover:text-[#784f2b] transition-colors truncate">
                         {rel.title}
                       </h4>
-                      <p className="text-[11px] text-[#A1A1AA] truncate mt-0.5">
-                        {rel.specs.material}
+                      <p className="text-xs text-[rgba(43,39,33,0.62)] truncate">
+                        {rel.categoryName}
                       </p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#71717A] group-hover:text-[#F5F3EF] shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[rgba(43,39,33,0.48)] shrink-0" />
                   </div>
                 ))}
               </div>

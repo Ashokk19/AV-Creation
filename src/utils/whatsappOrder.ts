@@ -39,55 +39,60 @@ export function validateCartForWhatsApp(
     };
   }
 
-  // Check if any products lack a numeric price
+  // Identify any items lacking a fixed numeric price (ordering still allowed)
   const unpriced = items
     .filter((item) => item.product.price === null || item.product.price === undefined || isNaN(item.product.price))
     .map((item) => item.product.title);
 
-  if (unpriced.length > 0) {
-    return {
-      isValid: false,
-      errorMessage: `The following item${unpriced.length > 1 ? 's do' : ' does'} not have a fixed price yet (${unpriced.join(', ')}). Please remove ${unpriced.length > 1 ? 'them' : 'it'} or request a custom commission.`,
-      unpricedProducts: unpriced,
-    };
-  }
-
   return {
     isValid: true,
-    unpricedProducts: [],
+    unpricedProducts: unpriced,
   };
 }
 
 /**
- * Builds the exact structured WhatsApp message required:
- *
- * Hello AV Creations! I'd like to order:
- *
- * 1. Lotus Lamp — Qty: 2 × ₹350 = ₹700
- * 2. Articulated Dragon — Qty: 1 × ₹500 = ₹500
- *
- * Total: ₹1,200
- *
- * Please confirm availability and delivery details.
+ * Builds the structured WhatsApp order message, supporting both fixed-price items
+ * and unpriced items where a price quote is requested.
  */
 export function generateWhatsAppOrderMessage(items: CartItem[]): string {
   const lines: string[] = ['Hello AV Creations! I\'d like to order:\n'];
 
   let grandTotal = 0;
+  let hasPricedItem = false;
+  const unpricedTitles: string[] = [];
 
   items.forEach((item, index) => {
-    const unitPrice = item.product.price || 0;
-    const lineTotal = unitPrice * item.quantity;
-    grandTotal += lineTotal;
-
+    const hasPrice =
+      typeof item.product.price === 'number' && !isNaN(item.product.price);
     const colorNote = item.selectedColor ? ` (${item.selectedColor.name})` : '';
-    lines.push(
-      `${index + 1}. ${item.product.title}${colorNote} — Qty: ${item.quantity} × ${formatPriceINR(unitPrice)} = ${formatPriceINR(lineTotal)}`
-    );
+
+    if (hasPrice) {
+      hasPricedItem = true;
+      const unitPrice = item.product.price as number;
+      const lineTotal = unitPrice * item.quantity;
+      grandTotal += lineTotal;
+      lines.push(
+        `${index + 1}. ${item.product.title}${colorNote} — Qty: ${item.quantity} × ${formatPriceINR(unitPrice)} = ${formatPriceINR(lineTotal)}`
+      );
+    } else {
+      unpricedTitles.push(item.product.title);
+      lines.push(
+        `${index + 1}. ${item.product.title}${colorNote} — Qty: ${item.quantity} (Please share the price)`
+      );
+    }
   });
 
-  lines.push(`\nTotal: ${formatPriceINR(grandTotal)}`);
-  lines.push('\nPlease confirm availability and delivery details.');
+  if (unpricedTitles.length === 0) {
+    lines.push(`\nTotal: ${formatPriceINR(grandTotal)}`);
+    lines.push('\nPlease confirm availability and delivery details.');
+  } else if (hasPricedItem) {
+    lines.push(
+      `\nKnown Items Total: ${formatPriceINR(grandTotal)} (+ quote needed for: ${unpricedTitles.join(', ')})`
+    );
+    lines.push('\nPlease share the price for the unpriced item(s) and confirm availability and delivery details.');
+  } else {
+    lines.push('\nPlease share the price, availability, and delivery details.');
+  }
 
   return lines.join('\n');
 }

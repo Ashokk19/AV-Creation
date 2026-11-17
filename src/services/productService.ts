@@ -271,10 +271,18 @@ export async function fetchCategories(): Promise<CategoryRecord[]> {
   }
 
   try {
-    const { data: categories, error } = await client
-      .from('categories')
-      .select('id, name, slug, created_at')
-      .order('created_at', { ascending: true });
+    const [
+      { data: categories, error },
+      { data: products },
+    ] = await Promise.all([
+      client
+        .from('categories')
+        .select('id, name, slug, created_at')
+        .order('created_at', { ascending: true }),
+      client
+        .from('products')
+        .select('category_id'),
+    ]);
 
     if (error) {
       console.error('Error fetching categories from Supabase:', error);
@@ -285,11 +293,6 @@ export async function fetchCategories(): Promise<CategoryRecord[]> {
       // Seed default categories if none exist
       return await seedDefaultCategories();
     }
-
-    // Query product counts per category
-    const { data: products } = await client
-      .from('products')
-      .select('category_id');
 
     const counts: Record<string, number> = {};
     if (products) {
@@ -457,7 +460,10 @@ export async function fetchProducts(options?: {
       query = query.eq('is_featured', options.isFeatured);
     }
 
-    const { data, error } = await query;
+    const [{ data, error }, settingsGalleryMap] = await Promise.all([
+      query,
+      fetchProductGalleriesFromSettings(client),
+    ]);
 
     if (error) {
       console.error('Error fetching products from Supabase:', error);
@@ -465,12 +471,6 @@ export async function fetchProducts(options?: {
     }
 
     const rows = data || [];
-    const needsSettingsGalleryFallback = rows.some(
-      (p) => !Array.isArray(p.images) || p.images.length <= 1
-    );
-    const settingsGalleryMap = needsSettingsGalleryFallback
-      ? await fetchProductGalleriesFromSettings(client)
-      : new Map<string, string[]>();
 
     return rows.map((p) => {
       const dbImages: string[] =

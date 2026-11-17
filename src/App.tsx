@@ -3,22 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { ProductItem, ColorVariant, CategoryRecord, CartItem } from './types';
 import { fetchCategories, fetchProducts, mapProductRecordToItem } from './services/productService';
 import { getCurrentAdmin } from './services/authService';
 import { Navbar } from './components/Navbar';
 import { CataloguePage } from './components/catalogue/CataloguePage';
-import { ProductDetailModal } from './components/ProductDetailModal';
-import { CollectionsView } from './components/CollectionsView';
 import { CustomPrintSection } from './components/CustomPrintSection';
 import { AboutSection } from './components/AboutSection';
-import { FavoritesDrawer } from './components/FavoritesDrawer';
-import { CartDrawer } from './components/CartDrawer';
-import { SearchModal } from './components/SearchModal';
 import { Footer } from './components/Footer';
-import { AdminLogin } from './components/admin/AdminLogin';
-import { AdminDashboard } from './components/admin/AdminDashboard';
 import { User } from '@supabase/supabase-js';
 import {
   StoreSettings,
@@ -26,6 +19,45 @@ import {
   fetchStoreSettings,
   SETTINGS_CHANGE_EVENT,
 } from './services/settingsService';
+
+const CollectionsView = lazy(() =>
+  import('./components/CollectionsView').then((m) => ({ default: m.CollectionsView }))
+);
+const ProductDetailModal = lazy(() =>
+  import('./components/ProductDetailModal').then((m) => ({ default: m.ProductDetailModal }))
+);
+const CartDrawer = lazy(() =>
+  import('./components/CartDrawer').then((m) => ({ default: m.CartDrawer }))
+);
+const FavoritesDrawer = lazy(() =>
+  import('./components/FavoritesDrawer').then((m) => ({ default: m.FavoritesDrawer }))
+);
+const SearchModal = lazy(() =>
+  import('./components/SearchModal').then((m) => ({ default: m.SearchModal }))
+);
+const AdminLogin = lazy(() =>
+  import('./components/admin/AdminLogin').then((m) => ({ default: m.AdminLogin }))
+);
+const AdminDashboard = lazy(() =>
+  import('./components/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
+);
+
+const CATALOG_CACHE_KEY = 'av_catalog_snapshot_v1';
+
+function readCatalogSnapshot(): { categories: CategoryRecord[]; products: ProductItem[] } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CATALOG_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.categories) && Array.isArray(parsed?.products)) {
+      return { categories: parsed.categories, products: parsed.products };
+    }
+  } catch {
+    // ignore storage parse failure
+  }
+  return null;
+}
 
 export default function App() {
   // Routing state based on URL pathname
@@ -38,10 +70,17 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
-  // Public Catalog State (Loaded dynamically from Supabase)
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
-  const [products, setProducts] = useState<ProductItem[]>([]);
-  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
+  // Public Catalog State (Instant SWR cache + live Supabase sync)
+  const initialSnapshot = useMemo(() => readCatalogSnapshot(), []);
+  const [categories, setCategories] = useState<CategoryRecord[]>(
+    () => initialSnapshot?.categories ?? []
+  );
+  const [products, setProducts] = useState<ProductItem[]>(
+    () => initialSnapshot?.products ?? []
+  );
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(
+    () => !initialSnapshot
+  );
 
   // Public View state for the main site
   const [activeView, setActiveView] = useState<'home' | 'collections'>('home');
@@ -216,19 +255,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    checkAdminSession();
-  }, [checkAdminSession]);
+    if (currentPath.startsWith('/admin')) {
+      checkAdminSession();
+      return;
+    }
+    // Defer admin session check on public storefront so mobile startup bandwidth serves catalogue & images first
+    const timer = window.setTimeout(() => {
+      checkAdminSession();
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [checkAdminSession, currentPath]);
 
-  const loadDynamicCatalog = useCallback(async () => {
-    setIsLoadingCatalog(true);
+  const loadDynamicCatalog = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setIsLoadingCatalog(true);
     try {
       const [catRecords, prodRecords] = await Promise.all([
         fetchCategories(),
         fetchProducts({ status: 'active' }),
       ]);
-      setCategories(catRecords);
       const mappedItems = prodRecords.map(mapProductRecordToItem);
+      setCategories(catRecords);
       setProducts(mappedItems);
+      try {
+        localStorage.setItem(
+          CATALOG_CACHE_KEY,
+          JSON.stringify({ categories: catRecords, products: mappedItems })
+        );
+      } catch {
+        // ignore quota errors
+      }
     } catch (err) {
       console.error('Failed to load dynamic catalog:', err);
     } finally {
@@ -237,8 +292,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadDynamicCatalog();
-  }, [loadDynamicCatalog]);
+    loadDynamicCatalog(!initialSnapshot);
+  }, [loadDynamicCatalog, initialSnapshot]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -409,14 +464,22 @@ export default function App() {
       return null;
     }
     return (
-      <AdminLogin
-        onLoginSuccess={async () => {
-          await checkAdminSession();
-          await loadDynamicCatalog();
-          navigateTo('/admin');
-        }}
-        onBackToHome={() => navigateTo('/')}
-      />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#101010] flex items-center justify-center text-xs font-mono text-[#E7A96B]">
+            Loading Admin Login...
+          </div>
+        }
+      >
+        <AdminLogin
+          onLoginSuccess={async () => {
+            await checkAdminSession();
+            await loadDynamicCatalog();
+            navigateTo('/admin');
+          }}
+          onBackToHome={() => navigateTo('/')}
+        />
+      </Suspense>
     );
   }
 
@@ -438,31 +501,47 @@ export default function App() {
         window.history.replaceState({}, '', '/admin/login');
       }
       return (
-        <AdminLogin
-          onLoginSuccess={async () => {
-            await checkAdminSession();
-            await loadDynamicCatalog();
-            navigateTo('/admin');
-          }}
-          onBackToHome={() => navigateTo('/')}
-        />
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-[#101010] flex items-center justify-center text-xs font-mono text-[#E7A96B]">
+              Loading Admin Login...
+            </div>
+          }
+        >
+          <AdminLogin
+            onLoginSuccess={async () => {
+              await checkAdminSession();
+              await loadDynamicCatalog();
+              navigateTo('/admin');
+            }}
+            onBackToHome={() => navigateTo('/')}
+          />
+        </Suspense>
       );
     }
 
     return (
-      <AdminDashboard
-        adminEmail={adminUser.email}
-        onLogout={async () => {
-          setAdminUser(null);
-          setIsAdmin(false);
-          await loadDynamicCatalog();
-          navigateTo('/admin/login');
-        }}
-        onViewPortfolio={() => {
-          loadDynamicCatalog();
-          navigateTo('/');
-        }}
-      />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#101010] flex items-center justify-center text-xs font-mono text-[#E7A96B]">
+            Loading Admin Portal...
+          </div>
+        }
+      >
+        <AdminDashboard
+          adminEmail={adminUser.email}
+          onLogout={async () => {
+            setAdminUser(null);
+            setIsAdmin(false);
+            await loadDynamicCatalog();
+            navigateTo('/admin/login');
+          }}
+          onViewPortfolio={() => {
+            loadDynamicCatalog();
+            navigateTo('/');
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -492,17 +571,25 @@ export default function App() {
       <div className="relative z-10">
         <main>
           {activeView === 'collections' ? (
-            <CollectionsView
-              initialCategory={selectedCategoryForCollections}
-              categories={categories}
-              allProducts={products}
-              favorites={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
-              onSelectProduct={(p) => setSelectedProduct(p)}
-              onAddToCart={(p) => handleAddToCart(p, 1)}
-              onBackToDiscover={() => handlePublicNavigate('home')}
-              onRequestCustom={() => handlePublicNavigate('custom')}
-            />
+            <Suspense
+              fallback={
+                <div className="py-24 text-center sb-prose text-base text-[rgba(43,39,33,0.68)]">
+                  Opening studio collections...
+                </div>
+              }
+            >
+              <CollectionsView
+                initialCategory={selectedCategoryForCollections}
+                categories={categories}
+                allProducts={products}
+                favorites={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                onSelectProduct={(p) => setSelectedProduct(p)}
+                onAddToCart={(p) => handleAddToCart(p, 1)}
+                onBackToDiscover={() => handlePublicNavigate('home')}
+                onRequestCustom={() => handlePublicNavigate('custom')}
+              />
+            </Suspense>
           ) : (
             <>
               <CataloguePage
@@ -552,50 +639,66 @@ export default function App() {
       </div>
 
       {/* Product Detail Lightbox Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={Boolean(selectedProduct)}
-        onClose={() => setSelectedProduct(null)}
-        isFavorite={selectedProduct ? favoriteIds.includes(selectedProduct.id) : false}
-        onToggleFavorite={handleToggleFavorite}
-        onRequestOrder={handleRequestOrderFromProduct}
-        onAddToCart={(p, q, c) => handleAddToCart(p, q, c)}
-        onSelectRelated={(p) => setSelectedProduct(p)}
-        relatedProducts={relatedProducts}
-      />
+      {selectedProduct && (
+        <Suspense fallback={null}>
+          <ProductDetailModal
+            product={selectedProduct}
+            isOpen={Boolean(selectedProduct)}
+            onClose={() => setSelectedProduct(null)}
+            isFavorite={favoriteIds.includes(selectedProduct.id)}
+            onToggleFavorite={handleToggleFavorite}
+            onRequestOrder={handleRequestOrderFromProduct}
+            onAddToCart={(p, q, c) => handleAddToCart(p, q, c)}
+            onSelectRelated={(p) => setSelectedProduct(p)}
+            relatedProducts={relatedProducts}
+          />
+        </Suspense>
+      )}
 
       {/* Shopping Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        items={cartItems}
-        onUpdateQuantity={handleUpdateCartQuantity}
-        onRemoveItem={handleRemoveCartItem}
-        onClearCart={handleClearCart}
-        onSelectProduct={(p) => {
-          setIsCartOpen(false);
-          setSelectedProduct(p);
-        }}
-      />
+      {isCartOpen && (
+        <Suspense fallback={null}>
+          <CartDrawer
+            isOpen={isCartOpen}
+            onClose={() => setIsCartOpen(false)}
+            items={cartItems}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveCartItem}
+            onClearCart={handleClearCart}
+            onSelectProduct={(p) => {
+              setIsCartOpen(false);
+              setSelectedProduct(p);
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Saved Bookmarks Drawer */}
-      <FavoritesDrawer
-        isOpen={isFavoritesOpen}
-        onClose={() => setIsFavoritesOpen(false)}
-        favorites={favoriteProducts}
-        onRemoveFavorite={handleToggleFavorite}
-        onClearAll={handleClearFavorites}
-        onSelectProduct={(p) => setSelectedProduct(p)}
-        onInquireBatch={handleInquireBatch}
-      />
+      {isFavoritesOpen && (
+        <Suspense fallback={null}>
+          <FavoritesDrawer
+            isOpen={isFavoritesOpen}
+            onClose={() => setIsFavoritesOpen(false)}
+            favorites={favoriteProducts}
+            onRemoveFavorite={handleToggleFavorite}
+            onClearAll={handleClearFavorites}
+            onSelectProduct={(p) => setSelectedProduct(p)}
+            onInquireBatch={handleInquireBatch}
+          />
+        </Suspense>
+      )}
 
       {/* Global Search Modal */}
-      <SearchModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        allProducts={products}
-        onSelectProduct={(p) => setSelectedProduct(p)}
-      />
+      {isSearchOpen && (
+        <Suspense fallback={null}>
+          <SearchModal
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            allProducts={products}
+            onSelectProduct={(p) => setSelectedProduct(p)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

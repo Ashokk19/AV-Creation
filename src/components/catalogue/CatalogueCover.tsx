@@ -141,7 +141,7 @@ export const CatalogueCover: React.FC<CatalogueCoverProps> = ({
               onViewFeaturedProduct(featuredProduct);
             }
           }}
-          className={`relative my-4 flex-1 min-h-[190px] sm:min-h-[240px] flex items-center justify-center rounded-sm border border-[rgba(43,39,33,0.16)] bg-[#f4efe3] overflow-hidden p-4 sm:p-6 shadow-[0_8px_24px_rgba(43,39,33,0.08)] ${
+          className={`relative my-4 h-[210px] sm:h-[250px] md:h-auto md:flex-1 md:min-h-[240px] flex items-center justify-center rounded-sm border border-[rgba(43,39,33,0.16)] bg-[#f4efe3] overflow-hidden p-4 sm:p-6 shadow-[0_8px_24px_rgba(43,39,33,0.08)] ${
             heroImageType === 'product' && featuredProduct ? 'cursor-pointer group' : ''
           }`}
         >
@@ -163,6 +163,8 @@ export const CatalogueCover: React.FC<CatalogueCoverProps> = ({
                 : 'AV Creations Studio Showcase'
             }
             draggable={false}
+            decoding="async"
+            fetchPriority="high"
             referrerPolicy="no-referrer"
             style={{ objectPosition: `${focalX}% ${focalY}%` }}
             className={`w-full h-full max-h-[260px] ${effectiveFit} transition-transform duration-500 ${

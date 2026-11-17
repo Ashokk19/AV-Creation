@@ -62,13 +62,15 @@ export const ProductPage: React.FC<ProductPageProps> = ({
           </span>
         </div>
 
-        {/* Crisp Paper Stage preserving full uncropped image (object-contain) for Brass Loupe inspection */}
-        <div className="relative my-3 flex-1 min-h-[200px] sm:min-h-[260px] flex items-center justify-center rounded-sm border border-[rgba(43,39,33,0.14)] bg-[#f4efe3] p-3 sm:p-5 overflow-hidden shadow-[0_6px_18px_rgba(43,39,33,0.06)]">
+        {/* Crisp Paper Stage preserving full uncropped image (object-contain) */}
+        <div className="relative my-3 h-[230px] sm:h-[270px] md:h-auto md:flex-1 md:min-h-[260px] flex items-center justify-center rounded-sm border border-[rgba(43,39,33,0.14)] bg-[#f4efe3] p-3 sm:p-5 overflow-hidden shadow-[0_6px_18px_rgba(43,39,33,0.06)]">
           {currentImage ? (
             <img
               src={currentImage}
               alt={product.title}
               draggable={false}
+              decoding="async"
+              fetchPriority={!passiveSnapshot ? 'high' : 'low'}
               referrerPolicy="no-referrer"
               className="w-full h-full max-h-[270px] object-contain drop-shadow-[0_10px_20px_rgba(43,39,33,0.16)]"
             />

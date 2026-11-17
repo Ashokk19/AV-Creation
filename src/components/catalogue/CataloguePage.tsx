@@ -45,6 +45,18 @@ export const CataloguePage: React.FC<CataloguePageProps> = ({
   const [activeSpreadIndex, setActiveSpreadIndex] = useState(0);
   const [photoIndexByProductId, setPhotoIndexByProductId] = useState<Record<string, number>>({});
   const [ledgerCategoryFilter, setLedgerCategoryFilter] = useState<string>('all');
+  const [isDesktopViewport, setIsDesktopViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1025px)').matches : false
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1025px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktopViewport(e.matches);
+    setIsDesktopViewport(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const bookPlan = useMemo(
     () => buildCatalogueBookPlan(categories, products),
@@ -187,18 +199,26 @@ export const CataloguePage: React.FC<CataloguePageProps> = ({
         id="sketchbook"
         className="sb-hero-section pt-24 sm:pt-28 pb-12 px-3 sm:px-6 lg:px-10 relative"
       >
-        <img
-          src="/assets/sketchbook/botany-left.png"
-          alt=""
-          aria-hidden="true"
-          className="sb-botany l"
-        />
-        <img
-          src="/assets/sketchbook/botany-right.png"
-          alt=""
-          aria-hidden="true"
-          className="sb-botany r"
-        />
+        {isDesktopViewport && (
+          <>
+            <img
+              src="/assets/sketchbook/botany-left.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="sb-botany l"
+            />
+            <img
+              src="/assets/sketchbook/botany-right.png"
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="sb-botany r"
+            />
+          </>
+        )}
 
         {/* Editorial Top Kicker */}
         <p className="text-[11px] sm:text-xs uppercase tracking-[0.22em] text-[rgba(43,39,33,0.68)] text-center mb-4 sm:mb-6">
@@ -370,12 +390,13 @@ export const CataloguePage: React.FC<CataloguePageProps> = ({
                       className="flex items-center gap-3.5 min-w-0 cursor-pointer group"
                     >
                       {thumb && (
-                        <div className="w-12 h-12 rounded-sm border border-[rgba(43,39,33,0.14)] bg-[#f4efe3] overflow-hidden shrink-0 hidden sm:flex items-center justify-center p-1">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-sm border border-[rgba(43,39,33,0.14)] bg-[#f4efe3] overflow-hidden shrink-0 flex items-center justify-center p-1">
                           <img
                             src={thumb}
                             alt=""
                             className="w-full h-full object-contain"
                             loading="lazy"
+                            decoding="async"
                           />
                         </div>
                       )}

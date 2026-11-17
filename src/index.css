@@ -12,7 +12,7 @@
   font-family: "Instrument Serif";
   font-style: normal;
   font-weight: 400;
-  font-display: block;
+  font-display: swap;
   src: url("/assets/sketchbook/instrument-serif.woff2") format("woff2");
 }
 
@@ -20,7 +20,7 @@
   font-family: "Instrument Serif";
   font-style: italic;
   font-weight: 400;
-  font-display: block;
+  font-display: swap;
   src: url("/assets/sketchbook/instrument-serif-italic.woff2") format("woff2");
 }
 
@@ -235,9 +235,25 @@ html {
 }
 
 @media (max-width: 767px) {
+  .sb-stage {
+    gap: 2px;
+  }
+  .sb-arrow {
+    padding: 8px 2px;
+  }
+  .sb-tilt {
+    transform: scale(var(--zoom, 1));
+    transform-style: flat;
+    will-change: auto;
+  }
   .sb-book {
     aspect-ratio: auto;
-    min-height: 540px;
+    height: auto;
+    min-height: 0;
+    transform-style: flat;
+  }
+  .sb-cast {
+    display: none;
   }
 }
 
@@ -353,22 +369,34 @@ html {
   );
 }
 
+.sb-full {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
 @media (max-width: 767px) {
   .sb-volume {
-    padding: 7px;
+    height: auto;
+    padding: 8px;
+    box-shadow:
+      0 10px 26px rgba(43, 39, 33, 0.14),
+      inset 0 1px 0 rgba(255, 246, 226, 0.18);
   }
   .sb-paper-spread {
+    height: auto;
+    min-height: 460px;
     background: linear-gradient(180deg, #faf7ef 0%, #f5f0e4 100%);
   }
   .sb-paper-spread::before {
     display: none;
   }
-}
-
-.sb-full {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
+  .sb-full {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+  }
 }
 
 .sb-half {

@@ -72,6 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <img
               src="/assets/aistudio/AV_Creations_Logo_with_3D_Printer_Icon_29dbcfaa.png"
               alt="AV Creations"
+              decoding="async"
               className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0"
             />
             <span className="sb-display text-xl sm:text-2xl tracking-[0.02em] text-[#2b2721] whitespace-nowrap">

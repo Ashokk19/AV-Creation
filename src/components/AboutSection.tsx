@@ -54,6 +54,8 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ onRequestCustom }) =
         <img
           src="/assets/sketchbook/bloom.png"
           alt="AV Creations botanical notebook accent"
+          loading="lazy"
+          decoding="async"
           className="w-40 sm:w-52 lg:w-60 mx-auto opacity-85 select-none pointer-events-none"
           draggable={false}
         />
